@@ -1,0 +1,6 @@
+dados/prata/*
+dados/ouro/*
+!dados/**/.gitkeep
+.venv/
+__pycache__/
+kaggle.json
