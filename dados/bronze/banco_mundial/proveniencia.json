@@ -1,0 +1,6 @@
+{
+  "fonte": "https://api.worldbank.org/v2/country",
+  "arquivo_bronze": "paises_20260820.csv",
+  "registros": 295,
+  "extraido_em": "2026-08-20T16:34:05.955919"
+}
