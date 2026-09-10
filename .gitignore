@@ -1,6 +1,7 @@
 dados/prata/*
 dados/ouro/*
 !dados/**/.gitkeep
+!dados/prata/proveniencia.jsonl
 .venv/
 __pycache__/
 kaggle.json
