@@ -1,16 +1,25 @@
 """Transforma a camada Bronze de paises (Banco Mundial) na camada Prata.
 
 Aula 5 - Qualidade de dados (Topicos em Programacao / ECOX14).
+Aula 6 - Limpeza avancada: as funcoes genericas sairam deste arquivo e
+         passaram a morar em src/limpeza.py; ficaram aqui so as que
+         mencionam o nome da fonte (nivel de renda do Banco Mundial).
 
 Le o CSV mais recente da bronze, aplica limpeza e checagens de qualidade,
 compara dois metodos de deteccao de valor extremo, remove so o erro
-comprovado pelo dominio, e grava o resultado em Parquet na prata.
+comprovado pelo dominio, tipa o nivel de renda como categoria ordenada
+e grava o resultado em Parquet na prata.
+
+Como executar, a partir da raiz do projeto:
+    python src/transformar_paises.py
 """
 from datetime import datetime
 from pathlib import Path
 import json
 
 import pandas as pd
+
+import limpeza  # modulo do projeto, em src/
 
 BRONZE = Path("dados/bronze/banco_mundial")
 PRATA = Path("dados/prata")
@@ -20,6 +29,42 @@ PADRAO = "paises_*.csv"
 LIMITES_GEOGRAFICOS = {
     "longitude": (-180, 180),
     "latitude": (-90, 90),
+}
+
+# A escala de renda tem ordem natural, e declarar isso faz comparar e
+# ordenar funcionarem. Sem ordem declarada o pandas ordena em ordem
+# alfabetica, e 'High income' vem primeiro.
+ORDEM_RENDA = [
+    "Low income",
+    "Lower middle income",
+    "Upper middle income",
+    "High income",
+]
+
+# Dicionario de sinonimos: especifico desta fonte, por isso mora aqui e
+# nao no modulo. As chaves estao na forma comparavel (sem acento, em
+# minuscula), que e o que limpeza.chave_texto devolve.
+#
+# Variantes reais: a classificacao do Banco Mundial ja usou
+# 'High income: OECD' e 'High income: nonOECD' como categorias
+# separadas, e a forma com hifen aparece em extracoes mais antigas.
+# Escrever o mapa deixa o script funcionar tambem sobre uma bronze
+# antiga, em vez de jogar essas linhas fora em silencio.
+MAPA_RENDA = {
+    "high income: oecd": "high income",
+    "high income: nonoecd": "high income",
+    "upper-middle income": "upper middle income",
+    "lower-middle income": "lower middle income",
+}
+
+# Da forma comparavel de volta para o rotulo canonico que aparece em
+# ORDEM_RENDA. O que nao estiver aqui (por exemplo 'Not classified')
+# nao e nivel de renda, e vira ausente ao declarar a escala.
+ROTULO_RENDA = {
+    "low income": "Low income",
+    "lower middle income": "Lower middle income",
+    "upper middle income": "Upper middle income",
+    "high income": "High income",
 }
 
 
@@ -41,18 +86,6 @@ def olhar_antes_de_decidir(df):
     print(df.isna().sum())
 
 
-def tirar_espacos(df):
-    """Remove espacos sobrando dos nomes de coluna e do conteudo texto.
-
-    Defeito anotado na fonte: valores de regiao como
-    'Latin America & Caribbean ' vem com espaco no fim.
-    """
-    df.columns = df.columns.str.strip()
-    for coluna in df.select_dtypes(include=["object", "string"]):
-        df[coluna] = df[coluna].str.strip()
-    return df
-
-
 def separar_agregados(df):
     """Separa os agregados regionais (World, Africa, ...) dos paises reais.
 
@@ -65,14 +98,42 @@ def separar_agregados(df):
     return df[e_pais].copy()
 
 
-def conferir_chave(df, chave="id"):
-    """Confere se a chave declarada no README (codigo de 3 letras do
-    pais) esta mesmo unica apos separar os agregados."""
-    repetidas = df[chave].duplicated().sum()
-    print("chaves repetidas:", repetidas)
-    if repetidas:
-        print(df[df[chave].duplicated(keep=False)])
-    return df.drop_duplicates(subset=chave)
+def criar_chaves_de_texto(df):
+    """Cria as colunas de comparacao das duas categorias desta fonte.
+
+    O rotulo original fica na tabela, do lado. Uma coluna serve para
+    comparar e juntar; a outra, para mostrar.
+    """
+    df["regiao_chave"] = limpeza.chave_texto(df["region.value"])
+    df["renda_chave"] = limpeza.aplicar_mapa(
+        limpeza.chave_texto(df["incomeLevel.value"]), MAPA_RENDA
+    )
+    print("regioes distintas (pelo rotulo) :", df["region.value"].nunique())
+    print("regioes distintas (pela chave)  :", df["regiao_chave"].nunique())
+    return df
+
+
+def tipar_renda(df):
+    """Tipa o nivel de renda como categoria COM ordem.
+
+    A coluna original e texto livre: nada impede um 'Hgih income' de
+    entrar. Declarando a escala, o que nao esta nela vira ausente - e e
+    isso que se quer, porque 'Not classified' nao e nivel de renda. O
+    codigo passa a dizer em voz alta o que estava escondido no meio do
+    texto.
+
+    O rotulo original nao e sobrescrito: a coluna nova se chama
+    nivel_renda e fica ao lado de incomeLevel.value, para nao perder a
+    informacao de quem caiu fora da escala.
+    """
+    canonico = limpeza.aplicar_mapa(df["renda_chave"], ROTULO_RENDA)
+    ausentes_antes = int(canonico.isna().sum())
+    df["nivel_renda"] = pd.Categorical(
+        canonico, categories=ORDEM_RENDA, ordered=True)
+    fora_da_escala = int(df["nivel_renda"].isna().sum()) - ausentes_antes
+    print("renda fora da escala:", fora_da_escala)
+    print(df["nivel_renda"].value_counts(dropna=False))
+    return df, fora_da_escala
 
 
 def converter_tipos(df):
@@ -166,10 +227,17 @@ def main():
     antes = len(df)
     olhar_antes_de_decidir(df)
 
-    df = tirar_espacos(df)
+    # as tres primeiras agora vem do modulo: nenhuma delas menciona
+    # Banco Mundial, logo nenhuma delas e desta fonte
+    df = limpeza.tirar_espacos(df)
     df = separar_agregados(df)
-    df = conferir_chave(df)
+    df, repetidas, ausentes_na_chave = limpeza.conferir_chave(
+        df, "id", remover=True)
     df, novos_ausentes = converter_tipos(df)
+
+    # texto padronizado para comparar, e categoria com ordem declarada
+    df = criar_chaves_de_texto(df)
+    df, renda_fora_da_escala = tipar_renda(df)
 
     # duas formas de marcar valor extremo, para comparar (discussao da aula)
     contagens_extremos = {}
@@ -193,7 +261,8 @@ def main():
     decisoes = [
         "Espacos removidos de nomes de coluna e de texto.",
         "Agregados regionais separados (granularidade diferente da dos paises).",
-        "Chave 'id' conferida quanto a duplicidade apos separar os agregados.",
+        "Chave 'id' conferida quanto a duplicidade apos separar os agregados: "
+        f"{repetidas} repetidas, {ausentes_na_chave['id']} ausentes na chave.",
         "Longitude e latitude convertidas para numero; "
         f"vazios/invalidos viraram ausentes: {novos_ausentes}.",
         "Valores extremos de longitude e latitude marcados por dois metodos "
@@ -203,6 +272,15 @@ def main():
         f"removidas por erro comprovado: {removidas_por_erro}.",
         "Coluna capitalCity vazia mantida como esta: nao se aplica a "
         "todos os registros e o vazio aqui e a resposta certa.",
+        "Funcoes genericas de limpeza passaram a vir de src/limpeza.py "
+        "(tirar_espacos, chave_texto, aplicar_mapa, conferir_chave), em vez "
+        "de copiadas neste script.",
+        "Colunas de comparacao criadas ao lado do rotulo original: "
+        "regiao_chave e renda_chave (sem acento, sem espaco, em minuscula).",
+        "Nivel de renda tipado como categoria ordenada em nivel_renda "
+        f"(Low < Lower middle < Upper middle < High income); linhas fora da "
+        f"escala (por exemplo 'Not classified') viraram ausentes: "
+        f"{renda_fora_da_escala}.",
     ]
     info = registrar(origem, destino, antes, depois, decisoes)
 

@@ -5,3 +5,8 @@ dados/ouro/*
 .venv/
 __pycache__/
 kaggle.json
+
+# Relatorio de perfilamento: 16 MB de HTML gerado, reconstruivel com
+# python src/explorar.py. Arquivo grande em repositorio fica no
+# historico para sempre, mesmo se apagado depois.
+relatorios/

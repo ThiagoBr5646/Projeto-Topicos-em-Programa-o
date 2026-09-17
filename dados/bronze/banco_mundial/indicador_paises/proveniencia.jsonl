@@ -1,0 +1,1 @@
+{"fonte": "https://api.worldbank.org/v2/country/all/indicator/SH.XPD.CHEX.PC.CD", "indicador": "SH.XPD.CHEX.PC.CD", "periodo": "2000:2023", "arquivo_bronze": "SH.XPD.CHEX.PC.CD_20260917.csv", "registros_informados_pela_api": 6360, "registros_recebidos": 6360, "fonte_atualizada_em": "2026-07-13", "extraido_em": "2026-09-17T16:12:31"}
