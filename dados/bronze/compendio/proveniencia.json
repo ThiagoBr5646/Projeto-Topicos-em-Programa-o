@@ -1,0 +1,21 @@
+{
+  "fonte": "2024 Adult Compendium of Physical Activities - secao Conditioning Exercise",
+  "url": "https://pacompendium.com/conditioning-exercise/",
+  "citacao": "Herrmann SD, Willis EA, Ainsworth BE, et al. 2024 Adult Compendium of Physical Activities: A third update of the energy costs of human activities. J Sport Health Sci. 2024;13(1):6-12. doi:10.1016/j.jshs.2023.10.010",
+  "acesso": "pagina publica, sem API e sem token",
+  "como_foi_extraido": "tabela da pagina copiada para CSV sem alterar codigo, MET nem descricao; cabecalho igual ao da pagina; conferida codigo a codigo com o PDF da mesma secao",
+  "pdf_de_conferencia": "https://pacompendium.com/wp-content/uploads/2024/01/2024-adult-compendium_1_2024.pdf",
+  "arquivo_bronze": "compendio_condicionamento_20261022.csv",
+  "linhas": 86,
+  "divergencias_pagina_x_pdf": {
+    "02280": "pagina 7.9, PDF de jan/2024 8.3; ficou o valor da pagina, que e a versao mais recente (atualizada em 2026-04-05)"
+  },
+  "valores_estimados_na_fonte": [
+    "02090",
+    "02135",
+    "02143",
+    "02160"
+  ],
+  "nota_valores_estimados": "a pagina marca em vermelho os MET estimados, sem estudo publicado que os sustente",
+  "extraido_em": "2026-10-22T16:36:30.214734"
+}

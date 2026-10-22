@@ -139,7 +139,7 @@ def salvar(df):
 
 
 def registrar(origem, destino, antes, depois, decisoes):
-    """Registra a proveniencia no mesmo arquivo das outras fontes."""
+    """Registra a proveniencia: uma linha por execucao, no fim do arquivo."""
     info = {
         "origem": origem.name,
         "arquivo_prata": destino.name,
@@ -191,7 +191,7 @@ def main():
         "removidas.",
         "PENDENTE desta fonte: as checagens de qualidade da aula 5 "
         "(valor extremo por IQR e z-score, faixa valida por dominio) "
-        "foram feitas so na fonte de paises; esta prata cobre a limpeza "
+        "ainda nao foram feitas nesta base; esta prata cobre a limpeza "
         "e o atributo derivado da aula 6.",
     ]
     info = registrar(origem, destino, antes, depois, decisoes)

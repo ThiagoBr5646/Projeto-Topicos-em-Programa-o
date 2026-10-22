@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calorias no Treino — ECOX14</title>
+<style>
+/* ---------- Tokens de cor (claro) ---------- */
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --wash: rgba(42,120,214,0.08);
+  --s1: #2a78d6;          /* categórica 1 (azul) */
+  --s2: #eb6834;          /* categórica 2 (laranja) */
+  --pos: #2a78d6;         /* divergente: polo positivo */
+  --neg: #e34948;         /* divergente: polo negativo */
+  --o1: #86b6ef; --o2: #3987e5; --o3: #1c5cab; --o4: #0d366b;   /* rampa ordinal */
+  --ok: #006300;
+}
+/* ---------- Tokens de cor (escuro) ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --wash: rgba(57,135,229,0.14);
+    --s1: #3987e5; --s2: #d95926; --pos: #3987e5; --neg: #e66767;
+    --o1: #184f95; --o2: #256abf; --o3: #5598e7; --o4: #9ec5f4; --ok: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --wash: rgba(57,135,229,0.14);
+  --s1: #3987e5; --s2: #d95926; --pos: #3987e5; --neg: #e66767;
+  --o1: #184f95; --o2: #256abf; --o3: #5598e7; --o4: #9ec5f4; --ok: #0ca30c;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+button, select, input { font: inherit; color: inherit; }
+
+/* ---------- Estrutura das telas ---------- */
+.deck { position: fixed; inset: 0 0 56px 0; overflow: hidden; }
+.slide {
+  position: absolute; inset: 0;
+  overflow-y: auto;
+  padding: clamp(20px, 4vw, 48px) clamp(16px, 5vw, 72px) 24px;
+  opacity: 0; visibility: hidden;
+  transition: opacity .25s ease;
+}
+.slide.ativa { opacity: 1; visibility: visible; }
+.conteudo { max-width: 1180px; margin: 0 auto; }
+.kicker { font-size: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+h1 { font-size: clamp(30px, 4.4vw, 52px); line-height: 1.1; margin: 0 0 16px; font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: clamp(24px, 3vw, 36px); line-height: 1.15; margin: 0 0 8px; font-weight: 650; }
+h3 { font-size: 18px; margin: 0 0 6px; font-weight: 600; }
+.sub { color: var(--ink2); font-size: clamp(16px, 1.6vw, 20px); margin: 0 0 24px; max-width: 70ch; }
+.muted { color: var(--muted); }
+.ink2 { color: var(--ink2); }
+code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .88em; background: var(--wash); padding: 1px 5px; border-radius: 4px; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 860px) {
+  .grid2, .grid3, .grid4 { grid-template-columns: 1fr !important; }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.card p { margin: 6px 0; }
+
+/* Blocos de número (stat tiles) */
+.tile .rotulo { font-size: 14px; color: var(--ink2); }
+.tile .valor { font-size: 34px; font-weight: 650; line-height: 1.15; }
+.tile .nota { font-size: 13px; color: var(--muted); }
+
+/* Botões de alternância e chips */
+.controles { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 14px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 7px 14px; cursor: pointer; font-size: 15px; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 12px; cursor: pointer; font-size: 14px; }
+.chip[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); font-weight: 600; }
+select, input[type="text"] { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 15px; }
+label.ctl { font-size: 14px; color: var(--ink2); display: inline-flex; gap: 6px; align-items: center; }
+
+/* ---------- Gráficos de barra em HTML ---------- */
+.colunas { position: relative; height: 300px; margin: 8px 0 0 44px; border-bottom: 1px solid var(--axis); display: flex; justify-content: space-around; align-items: flex-end; }
+.colunas .linha-grade { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); }
+.colunas .tick { position: absolute; left: -44px; width: 38px; text-align: right; font-size: 12px; color: var(--muted); transform: translateY(-50%); font-variant-numeric: tabular-nums; }
+.colunas .col { position: relative; width: 24px; border-radius: 4px 4px 0 0; transition: height .6s cubic-bezier(.2,.7,.2,1); cursor: default; }
+.colunas .col .val { position: absolute; bottom: 100%; left: 50%; transform: translate(-50%, -4px); font-size: 15px; font-weight: 600; white-space: nowrap; color: var(--ink); }
+.colunas .col:hover, .colunas .col:focus { filter: brightness(1.12); outline: none; }
+.rotulos-col { display: flex; justify-content: space-around; margin-left: 44px; padding-top: 6px; font-size: 14px; color: var(--ink2); text-align: center; }
+.rotulos-col > div { flex: 1; }
+
+.barras-h { display: grid; grid-template-columns: minmax(120px, 170px) 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
+.barras-h .nome { color: var(--ink2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barras-h .trilho { position: relative; height: 22px; }
+.barras-h .zero { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--axis); }
+.barras-h .barra { position: absolute; top: 3px; height: 16px; transition: left .5s ease, width .5s ease; }
+.barras-h .barra.posit { border-radius: 0 4px 4px 0; }
+.barras-h .barra.negat { border-radius: 4px 0 0 4px; }
+.barras-h .num { position: absolute; top: 1px; font-size: 13px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; transition: left .5s ease; }
+
+/* SVG */
+svg.grafico { width: 100%; height: auto; display: block; overflow: visible; }
+svg.grafico text { fill: var(--muted); font-size: 12px; }
+svg.grafico .grade { stroke: var(--grid); stroke-width: 1; }
+svg.grafico .eixo { stroke: var(--axis); stroke-width: 1; }
+
+/* Legenda */
+.legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--ink2); margin: 0 0 8px; }
+.legenda span { display: inline-flex; align-items: center; gap: 6px; }
+.legenda i.ponto { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.legenda i.traco { width: 16px; height: 3px; border-radius: 2px; display: inline-block; }
+.legenda i.quad { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+/* Tooltip */
+#tooltip {
+  position: fixed; pointer-events: none; z-index: 50;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.12);
+  padding: 8px 10px; font-size: 13px; min-width: 120px; opacity: 0; transition: opacity .1s;
+}
+#tooltip.visivel { opacity: 1; }
+#tooltip .tt-titulo { color: var(--ink2); margin-bottom: 4px; }
+#tooltip .tt-linha { display: flex; align-items: center; gap: 8px; }
+#tooltip .tt-linha b { font-variant-numeric: tabular-nums; }
+#tooltip .tt-linha i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* Tabela (visão alternativa) */
+.btn-tabela { background: none; border: 0; color: var(--ink2); text-decoration: underline; cursor: pointer; font-size: 13px; padding: 0; margin-top: 8px; }
+table.tab { border-collapse: collapse; font-size: 13px; margin-top: 8px; width: 100%; }
+table.tab th, table.tab td { padding: 4px 8px; border-bottom: 1px solid var(--grid); text-align: right; font-variant-numeric: tabular-nums; }
+table.tab th:first-child, table.tab td:first-child { text-align: left; }
+.tab-wrap { max-height: 220px; overflow: auto; }
+
+/* Fontes / pipeline / defeitos */
+.fonte { cursor: pointer; transition: border-color .15s; }
+.fonte:hover { border-color: var(--axis); }
+.fonte .detalhe { display: none; margin-top: 10px; border-top: 1px solid var(--grid); padding-top: 10px; font-size: 15px; }
+.fonte.aberta .detalhe { display: block; }
+.fonte .papel { display: inline-block; font-size: 13px; padding: 2px 8px; border-radius: 999px; background: var(--wash); color: var(--ink2); margin-top: 6px; }
+dl.ficha { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: 14px; }
+dl.ficha dt { color: var(--muted); }
+dl.ficha dd { margin: 0; }
+
+.camadas { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: stretch; }
+.camadas .seta { align-self: center; color: var(--muted); font-size: 26px; }
+@media (max-width: 860px) { .camadas { grid-template-columns: 1fr; } .camadas .seta { transform: rotate(90deg); justify-self: center; } }
+.camada h3 { display: flex; align-items: center; gap: 8px; }
+.camada .medalha { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.script { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: transparent; border-radius: 8px; padding: 6px 10px; margin: 6px 0; cursor: pointer; font-size: 14px; }
+.script[aria-pressed="true"] { border-color: var(--ink); background: var(--wash); }
+.contagem { font-size: 14px; color: var(--ink2); margin: 4px 0; font-variant-numeric: tabular-nums; }
+#explica-script { min-height: 64px; margin-top: 16px; }
+
+.defeito { cursor: pointer; }
+.defeito .passo { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 10px; }
+.defeito .conserto { display: none; }
+.defeito.aberta .conserto { display: block; }
+.defeito .dica { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.defeito.aberta .dica { display: none; }
+
+.pergunta {
+  font-size: clamp(26px, 3.4vw, 42px); line-height: 1.2; font-weight: 600;
+  border-left: 4px solid var(--s1); padding: 6px 0 6px 22px; margin: 12px 0 28px; max-width: 26ch;
+}
+.chips-vars { display: flex; flex-wrap: wrap; gap: 8px; }
+.chips-vars span { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 12px; font-size: 15px; }
+.destaque { font-size: clamp(20px, 2.2vw, 26px); font-weight: 600; line-height: 1.3; margin: 16px 0 0; }
+
+.formula {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: clamp(16px, 1.9vw, 22px); line-height: 1.5;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 18px; margin: 8px 0 18px;
+}
+.formula span { background: var(--wash); border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.deslizador { display: grid; grid-template-columns: 90px 1fr 70px; gap: 10px; align-items: center; font-size: 15px; margin: 8px 0; }
+.deslizador label { color: var(--ink2); }
+.deslizador output { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.deslizador input[type="range"] { width: 100%; accent-color: var(--s1); }
+.fonte .abrir { font-size: 13px; color: var(--muted); margin-top: 10px; }
+.fonte.aberta .abrir { display: none; }
+ul.limpa { margin: 6px 0 0; padding-left: 20px; }
+ul.limpa li { margin: 6px 0; }
+
+/* ---------- Barra de navegação ---------- */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; height: 56px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 0 16px; background: var(--surface); border-top: 1px solid var(--border);
+  font-size: 14px; color: var(--ink2);
+}
+.nav button { border: 1px solid var(--border); background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.pontos { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.pontos button { width: 10px; height: 10px; padding: 0; border-radius: 50%; border: 0; background: var(--axis); }
+.pontos button[aria-current="true"] { background: var(--ink); }
+.nav .dir { display: flex; gap: 8px; align-items: center; }
+@media (max-width: 600px) { .nav .titulo-tela, .nav .palavra { display: none; } .nav { padding: 0 8px; } }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+<!-- ==================== 1. CAPA ==================== -->
+<section class="slide" data-titulo="Abertura">
+  <div class="conteudo">
+    <p class="kicker">ECOX14 · Tópicos em Programação · UNIFEI</p>
+    <h1>O que explica as calorias<br>queimadas num treino?</h1>
+    <p class="sub">Um pipeline de dados em camadas (bronze → prata → ouro) sobre uma base pública de treinos em academia, do dado bruto até uma resposta com números.</p>
+    <div class="grid4" style="margin-top:32px">
+      <div class="card tile"><div class="rotulo">Praticantes na base</div><div class="valor">973</div><div class="nota">uma sessão por pessoa</div></div>
+      <div class="card tile"><div class="rotulo">Colunas da fonte</div><div class="valor">15</div><div class="nota">+ 3 criadas na prata</div></div>
+      <div class="card tile"><div class="rotulo">Tipos de treino</div><div class="valor">4</div><div class="nota">cardio, HIIT, força e yoga</div></div>
+      <div class="card tile"><div class="rotulo">Calorias por sessão</div><div class="valor">303–1.783</div><div class="nota">média de 905 kcal</div></div>
+    </div>
+    <p class="muted" style="margin-top:32px">Thiago · Engenharia de Computação · use ← → para navegar</p>
+  </div>
+</section>
+
+<!-- ==================== 2. PERGUNTA ==================== -->
+<section class="slide" data-titulo="Pergunta norteadora">
+  <div class="conteudo">
+    <p class="kicker">O ponto de partida</p>
+    <h2>Pergunta norteadora</h2>
+    <p class="pergunta">Quais características do praticante mais explicam as calorias queimadas por sessão?</p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Por que ela importa no projeto</h3>
+        <p class="ink2">Ela é o <b>critério de decisão</b> do pipeline inteiro: se não dá para dizer em uma frase por que uma coluna ajuda a responder a pergunta, a coluna não deveria existir.</p>
+        <p class="ink2">Foi esse critério que criou <code>calorias_por_hora</code> e que descartou refazer o IMC, que a fonte já publica.</p>
+      </div>
+      <div class="card">
+        <h3>Candidatas a explicação (colunas da fonte)</h3>
+        <div class="chips-vars" style="margin-top:10px">
+          <span>Idade</span><span>Sexo</span><span>Peso</span><span>Altura</span><span>IMC</span>
+          <span>BPM médio</span><span>BPM máximo</span><span>BPM em repouso</span>
+          <span>Duração da sessão</span><span>Tipo de treino</span><span>% de gordura</span>
+          <span>Água ingerida</span><span>Frequência semanal</span><span>Nível de experiência</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 3. A BASE ==================== -->
+<section class="slide" data-titulo="A base de dados">
+  <div class="conteudo">
+    <p class="kicker">De onde vêm os dados</p>
+    <h2>Gym Members Exercise (Kaggle)</h2>
+    <p class="sub">Uma base pública de treinos em academia: cada linha é um praticante e uma sessão de treino.</p>
+    <div class="grid2" style="grid-template-columns: 1fr 1.45fr">
+      <div>
+        <div class="card">
+          <dl class="ficha">
+            <dt>Formato</dt><dd>CSV, baixado com token do Kaggle</dd>
+            <dt>Granularidade</dt><dd>um praticante por linha</dd>
+            <dt>Tamanho</dt><dd>973 linhas × 15 colunas</dd>
+            <dt>Extraída em</dt><dd>20/08/2026</dd>
+            <dt>Qualidade</dt><dd>0 ausentes · 0 linhas repetidas</dd>
+          </dl>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div class="controles">
+            <div class="seg" id="seg-comp">
+              <button aria-pressed="true" data-v="sexo">Sexo</button>
+              <button aria-pressed="false" data-v="tipo">Tipo de treino</button>
+              <button aria-pressed="false" data-v="exp">Experiência</button>
+            </div>
+          </div>
+          <div class="muted" style="font-size:13px;margin-bottom:8px">praticantes em cada grupo</div>
+          <div class="barras-h" id="graf-comp"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="controles">
+          <label class="ctl">Distribuição de
+            <select id="sel-hist">
+              <option value="0">Idade (anos)</option>
+              <option value="3">Duração da sessão (h)</option>
+              <option value="7">BPM médio</option>
+              <option value="4" selected>Calorias por sessão</option>
+              <option value="2">Peso (kg)</option>
+              <option value="9">% de gordura</option>
+              <option value="10">Frequência (dias/semana)</option>
+            </select>
+          </label>
+        </div>
+        <svg class="grafico" id="graf-hist" viewBox="0 0 600 300" role="img" aria-label="Histograma"></svg>
+        <div class="ink2" style="font-size:15px;margin-top:8px" id="leitura-hist"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 4. PIPELINE ==================== -->
+<section class="slide" data-titulo="Pipeline">
+  <div class="conteudo">
+    <p class="kicker">Arquitetura</p>
+    <h2>Bronze → prata → ouro</h2>
+    <p class="sub">Cada camada tem um papel. Clique num script para ver o que ele faz.</p>
+    <div class="camadas">
+      <div class="card camada">
+        <h3><i class="medalha" style="background:#b0793f"></i>Bronze</h3>
+        <p class="ink2" style="font-size:15px">O CSV exatamente como veio do Kaggle, com a data da extração no nome do arquivo.</p>
+        <button class="script" data-s="ingerir">ingerir.py</button>
+        <button class="script" data-s="explorar">explorar.py <span class="muted">(perfilamento)</span></button>
+        <div class="contagem">973 linhas × 15 colunas</div>
+        <div class="contagem">+ proveniencia.json</div>
+      </div>
+      <div class="seta">→</div>
+      <div class="card camada">
+        <h3><i class="medalha" style="background:#a3a7ad"></i>Prata</h3>
+        <p class="ink2" style="font-size:15px">Dado limpo, com o tipo certo em cada coluna e o atributo derivado, em Parquet.</p>
+        <button class="script" data-s="limpeza">limpeza.py <span class="muted">(módulo)</span></button>
+        <button class="script" data-s="t_gym">transformar_gym_members.py</button>
+        <div class="contagem">973 linhas × 18 colunas</div>
+        <div class="contagem">+ proveniencia.jsonl</div>
+      </div>
+      <div class="seta">→</div>
+      <div class="card camada">
+        <h3><i class="medalha" style="background:#d4a72c"></i>Ouro</h3>
+        <p class="ink2" style="font-size:15px">Dado modelado, pronto para análise.</p>
+        <p class="muted" style="font-size:15px">Próxima etapa: a tabela final que responde à pergunta norteadora.</p>
+      </div>
+    </div>
+    <div class="card" id="explica-script"><span class="muted">Selecione um script acima.</span></div>
+    <p class="muted" style="font-size:15px;margin-top:12px">As 3 colunas novas da prata: <code>treino_chave</code>, <code>experiencia</code> e <code>calorias_por_hora</code>. Cada execução grava as decisões tomadas e os números reais daquela rodada em <code>proveniencia.jsonl</code>.</p>
+  </div>
+</section>
+
+<!-- ==================== 5. DECISÕES DE LIMPEZA ==================== -->
+<section class="slide" data-titulo="Decisões de limpeza">
+  <div class="conteudo">
+    <p class="kicker">Limpeza</p>
+    <h2>Decisões de limpeza</h2>
+    <p class="sub">A base veio limpa. O trabalho foi provar isso e dar o tipo certo a cada coluna. Clique para ver o porquê.</p>
+    <div class="grid2">
+      <div class="card defeito" tabindex="0">
+        <h3>Conferir em vez de supor</h3>
+        <p class="ink2">Ausentes: 0. Linhas idênticas repetidas: 0. Espaços sobrando em nomes e textos: 0.</p>
+        <div class="dica">Clique para ver o porquê</div>
+        <div class="conserto"><div class="passo">Por quê</div><p>"Veio limpa" só vale se foi medido. As contagens ficam registradas na proveniência, e se uma extração futura vier suja, o mesmo script avisa.</p></div>
+      </div>
+      <div class="card defeito" tabindex="0">
+        <h3>Sexo e tipo de treino viram categoria</h3>
+        <p class="ink2"><code>Gender</code> e <code>Workout_Type</code> passam de texto livre para categoria <b>sem ordem</b>.</p>
+        <div class="dica">Clique para ver o porquê</div>
+        <div class="conserto"><div class="passo">Por quê</div><p>Como texto, nada impede um "Yogaa" de entrar. Como categoria, o valor fora da lista vira ausente e aparece na contagem. Sem ordem porque nenhum dos dois tem escala natural.</p></div>
+      </div>
+      <div class="card defeito" tabindex="0">
+        <h3>Experiência: número que não se soma</h3>
+        <p class="ink2"><code>Experience_Level</code> (1, 2, 3) virou <code>experiencia</code>, categoria <b>com ordem</b>: iniciante &lt; intermediário &lt; avançado.</p>
+        <div class="dica">Clique para ver o porquê</div>
+        <div class="conserto"><div class="passo">Por quê</div><p>3 não é o triplo de 1. Declarar a ordem permite comparar sem fingir que dá para fazer conta. O número original continua na tabela.</p></div>
+      </div>
+      <div class="card defeito" tabindex="0">
+        <h3>Chave de comparação ao lado do rótulo</h3>
+        <p class="ink2"><code>treino_chave</code>: o tipo de treino sem acento, sem espaço e em minúscula.</p>
+        <div class="dica">Clique para ver o porquê</div>
+        <div class="conserto"><div class="passo">Por quê</div><p>Uma coluna serve para comparar e agrupar, a outra para exibir. O dicionário de sinônimos está declarado, mas vazio: escrever variante que a base não tem seria inventar defeito.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 6. ATRIBUTO DERIVADO ==================== -->
+<section class="slide" data-titulo="Atributo derivado">
+  <div class="conteudo">
+    <p class="kicker">Atributo derivado</p>
+    <h2><code style="font-size:.85em">calorias_por_hora</code> = calorias ÷ duração</h2>
+    <p class="sub">Separa intensidade de duração. Sem dividir, quem fica duas horas em ritmo leve aparece como quem gasta mais.</p>
+    <div class="grid2">
+      <div class="card">
+        <div class="controles">
+          <div class="seg" id="seg-exp">
+            <button aria-pressed="true" data-v="total">Calorias por sessão</button>
+            <button aria-pressed="false" data-v="hora">Calorias por hora</button>
+          </div>
+        </div>
+        <div class="muted" style="font-size:13px" id="exp-unidade">kcal por sessão, média por nível de experiência</div>
+        <div class="colunas" id="graf-exp"></div>
+        <div class="rotulos-col" id="rot-exp"></div>
+        <button class="btn-tabela" data-tabela="tab-exp">Ver tabela</button>
+        <div id="tab-exp" hidden></div>
+      </div>
+      <div>
+        <div class="grid2" style="gap:12px">
+          <div class="card tile"><div class="rotulo">Faixa observada</div><div class="valor">540–930</div><div class="nota">kcal/h · média 720 · nenhum valor fora de 200–1.500</div></div>
+          <div class="card tile"><div class="rotulo">Sessão média do avançado</div><div class="valor" id="dur-av">1,76 h</div><div class="nota" id="dur-in">contra 1,01 h do iniciante</div></div>
+        </div>
+        <p class="destaque" id="msg-exp">Por sessão, o avançado queima 74% a mais que o iniciante…</p>
+        <p class="ink2" style="margin-top:12px">Escolha da família "razão ou taxa": divide para tirar o efeito do tamanho. O IMC não foi recriado, porque a fonte já o publica derivado de peso e altura.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 7. O QUE EXPLICA ==================== -->
+<section class="slide" data-titulo="O que explica">
+  <div class="conteudo">
+    <p class="kicker">Resultados</p>
+    <h2>O que explica as calorias?</h2>
+    <div class="controles">
+      <span class="ink2" style="font-size:14px">Alvo:</span>
+      <div class="seg" id="seg-alvo">
+        <button aria-pressed="true" data-v="total">Calorias por sessão</button>
+        <button aria-pressed="false" data-v="hora">Calorias por hora (intensidade)</button>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>Correlação de cada coluna com o alvo</h3>
+        <div class="legenda"><span><i class="quad" style="background:var(--pos)"></i>positiva</span><span><i class="quad" style="background:var(--neg)"></i>negativa</span><span class="muted">eixo de −1 a +1</span></div>
+        <div class="barras-h" id="graf-corr"></div>
+        <button class="btn-tabela" data-tabela="tab-corr">Ver tabela</button>
+        <div id="tab-corr" hidden></div>
+      </div>
+      <div class="card">
+        <h3>Quanto da variação fica explicado (R²)</h3>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">regressão linear, somando uma coluna por vez</div>
+        <div class="barras-h" id="graf-r2"></div>
+        <p class="destaque" id="msg-alvo" style="font-size:20px"></p>
+        <p class="ink2" style="margin-top:14px;font-size:15px">Explicar mais de 90% com três ou quatro colunas é alto demais para dado de gente de verdade. Foi isso que levantou a suspeita.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 8. EXPLORADOR ==================== -->
+<section class="slide" data-titulo="Explorador">
+  <div class="conteudo">
+    <p class="kicker">Explorador</p>
+    <h2>Cada ponto é um praticante</h2>
+    <div class="controles">
+      <label class="ctl">Eixo X
+        <select id="sel-x">
+          <option value="3">Duração da sessão (h)</option>
+          <option value="7" selected>BPM médio</option>
+          <option value="0">Idade</option>
+          <option value="2">Peso (kg)</option>
+          <option value="9">% de gordura</option>
+        </select>
+      </label>
+      <label class="ctl">Eixo Y
+        <select id="sel-y">
+          <option value="8" selected>Calorias por hora</option>
+          <option value="4">Calorias por sessão</option>
+        </select>
+      </label>
+      <span class="ink2" style="font-size:14px;margin-left:8px">Tipo de treino:</span>
+      <span id="chips-tipo"></span>
+    </div>
+    <div class="grid2" style="grid-template-columns: 1.6fr 1fr">
+      <div class="card">
+        <div class="legenda"><span><i class="ponto" style="background:var(--s1)"></i>Feminino</span><span><i class="ponto" style="background:var(--s2)"></i>Masculino</span><span class="muted">linha: tendência</span></div>
+        <svg class="grafico" id="graf-disp" viewBox="0 0 640 380" role="img" aria-label="Gráfico de dispersão"></svg>
+        <div class="ink2" style="font-size:15px;margin-top:6px" id="leitura-disp"></div>
+        <p class="ink2" style="font-size:15px;margin:6px 0 0">Repare em BPM médio × calorias por hora: os pontos não formam nuvem, formam <b>4 retas perfeitas</b>.</p>
+      </div>
+      <div class="card">
+        <h3>Intensidade média por tipo de treino</h3>
+        <div class="muted" style="font-size:13px;margin-bottom:10px">kcal por hora</div>
+        <div class="barras-h" id="graf-tipo"></div>
+        <p class="ink2" style="margin-top:14px">Diferença máxima entre os tipos: <b id="dif-tipo"></b>. HIIT queima o mesmo por hora que yoga.</p>
+        <h3 style="margin-top:18px">Intensidade por sexo</h3>
+        <div class="barras-h" id="graf-sexo"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 9. A FÓRMULA ==================== -->
+<section class="slide" data-titulo="A fórmula da base">
+  <div class="conteudo">
+    <p class="kicker">Bom demais para ser verdade</p>
+    <h2>A base foi gerada por uma fórmula</h2>
+    <p class="formula" id="formula-txt">calorias = duração × BPM médio × <span class="f-sexo">5,5 (homem) ou 5,0 (mulher)</span> × <span class="f-idade">0,9 se idade &gt; 40</span></p>
+    <div class="grid2" style="grid-template-columns: 1fr 1.2fr">
+      <div class="card">
+        <h3>Teste a fórmula</h3>
+        <div class="controles" style="margin-top:10px">
+          <div class="seg" id="seg-sexo">
+            <button aria-pressed="false" data-v="0">Mulher</button>
+            <button aria-pressed="true" data-v="1">Homem</button>
+          </div>
+        </div>
+        <div class="deslizador"><label for="r-idade">Idade</label><input type="range" id="r-idade" min="18" max="59" value="45"><output id="o-idade"></output></div>
+        <div class="deslizador"><label for="r-bpm">BPM médio</label><input type="range" id="r-bpm" min="120" max="169" value="150"><output id="o-bpm"></output></div>
+        <div class="deslizador"><label for="r-dur">Duração</label><input type="range" id="r-dur" min="0.5" max="2" step="0.05" value="1.25"><output id="o-dur"></output></div>
+        <div class="tile" style="margin-top:14px"><div class="rotulo" id="calc-conta"></div><div class="valor" id="calc-res"></div><div class="nota" id="calc-hora"></div></div>
+        <p class="destaque" style="font-size:19px;border-top:1px solid var(--grid);padding-top:14px" id="msg-formula"></p>
+      </div>
+      <div class="card">
+        <h3>Calorias reais × calculadas pela fórmula</h3>
+        <div class="legenda"><span><i class="ponto" style="background:var(--s1)"></i>Feminino</span><span><i class="ponto" style="background:var(--s2)"></i>Masculino</span><span class="muted">diagonal: real = calculada</span></div>
+        <svg class="grafico" id="graf-formula" viewBox="0 0 520 330" role="img" aria-label="Calorias reais contra calculadas"></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 10. RESPOSTA ==================== -->
+<section class="slide" data-titulo="Resposta e próximos passos">
+  <div class="conteudo">
+    <p class="kicker">Conclusão</p>
+    <h2>Resposta à pergunta norteadora</h2>
+    <div class="card" style="margin-top:12px">
+      <p style="font-size:clamp(18px,1.9vw,23px);margin:0">Nesta base, as calorias por sessão dependem de <b>quatro</b> características: <b>duração</b>, <b>BPM médio</b>, <b>sexo</b> e <b>idade acima de 40</b>. Peso, tipo de treino, experiência e % de gordura não entram na conta. Quando parecem importar, é porque andam junto com a duração.</p>
+    </div>
+    <div class="grid2" style="margin-top:20px">
+      <div class="card">
+        <h3>Limitações</h3>
+        <ul class="limpa ink2">
+          <li>A base é <b>sintética</b>: a fórmula reproduz as 973 linhas, com diferença de no máximo 0,5 kcal. A resposta descreve o gerador dos dados, não pessoas reais. Já registrado no README como defeito conhecido da fonte.</li>
+          <li>Uma sessão por pessoa, sem tempo: não dá para ver evolução do praticante.</li>
+          <li>Correlação não é causa: a experiência parecia explicar as calorias e só andava junto com a duração.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Próximos passos</h3>
+        <ul class="limpa ink2">
+          <li>Checagens de valor extremo (IQR e z-score) na base de academia.</li>
+          <li>Camada ouro: a tabela final de análise da academia.</li>
+          <li>Procurar uma base real de treinos para testar a mesma pergunta.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:24px">Obrigado! Perguntas?</p>
+  </div>
+</section>
+
+</div>
+
+<nav class="nav" aria-label="Navegação entre telas">
+  <button id="ant" aria-label="Tela anterior">←<span class="palavra"> Anterior</span></button>
+  <div class="pontos" id="pontos"></div>
+  <div class="dir">
+    <span class="titulo-tela" id="titulo-tela"></span>
+    <span id="contador"></span>
+    <button id="tema" title="Alternar tema claro/escuro (T)">Tema</button>
+    <button id="prox" aria-label="Próxima tela"><span class="palavra">Próxima </span>→</button>
+  </div>
+</nav>
+<div id="tooltip" role="status" aria-live="polite"></div>
+
+<script>
+/* Dados gerados a partir de dados/prata/*.parquet */
+const D = {"gym":[[56,1,88.3,1.69,1313,3,2,157,776.9,12.6,4],[46,0,74.9,1.3,883,1,1,151,679.2,33.9,4],[32,0,68.1,1.11,677,0,1,122,609.9,33.4,4],[25,1,53.2,0.59,532,2,0,164,901.7,28.8,3],[38,1,46.1,0.64,556,2,0,158,868.8,29.2,3],[56,0,58.0,1.59,1116,1,2,156,701.9,15.5,5],[36,1,70.3,1.49,1385,0,1,169,929.5,21.3,3],[40,0,69.7,1.27,895,0,1,141,704.7,30.6,3],[28,1,121.7,1.03,719,2,1,127,698.1,28.9,4],[28,1,101.8,1.08,808,0,0,136,748.1,29.7,3],[41,1,120.8,0.82,593,1,0,146,723.2,20.5,2],[53,1,51.7,1.15,865,1,1,152,752.2,23.6,3],[57,1,112.5,1.24,1013,0,1,165,816.9,22.1,3],[41,1,94.5,1.18,794,1,0,136,672.9,27.6,3],[20,1,117.7,1.35,1195,3,1,161,885.2,26.4,3],[39,0,42.5,1.13,740,2,0,131,654.9,26.2,2],[19,0,64.0,1.33,1111,1,1,167,835.3,29.8,3],[41,0,43.8,1.19,884,0,0,165,742.9,31.9,3],[47,0,66.8,1.13,742,2,1,146,656.6,32.8,3],[55,0,75.2,1.37,1030,1,0,167,751.8,25.2,2],[19,1,89.0,1.5,1048,2,1,127,698.7,28.9,4],[38,1,71.9,1.12,875,0,0,142,781.2,25.7,2],[50,0,71.0,1.17,848,3,0,161,724.8,33.1,2],[29,1,120.9,0.78,721,3,0,168,924.4,28.1,2],[39,0,64.3,1.25,925,1,1,148,740.0,26.9,4],[42,0,63.7,1.42,1080,3,1,169,760.6,26.1,3],[44,1,65.2,0.73,502,1,0,139,687.7,27.2,2],[59,1,53.9,1.48,989,2,1,135,668.2,21.6,4],[45,1,84.9,1.64,1104,1,2,136,673.2,14.2,5],[33,0,78.0,1.29,871,1,1,135,675.2,32.3,3],[32,1,108.2,1.27,964,1,0,138,759.1,28.4,3],[20,0,65.4,1.03,654,3,1,127,635.0,28.0,4],[54,0,50.2,1.48,1046,1,0,157,706.8,28.2,2],[24,0,58.9,1.04,816,0,0,157,784.6,31.7,2],[38,1,81.4,1.52,1237,1,2,148,813.8,10.2,5],[26,1,127.6,1.32,1162,2,0,160,880.3,27.3,3],[56,0,59.3,1.26,879,0,1,155,697.6,33.4,4],[35,1,96.9,1.34,1069,2,1,145,797.8,24.2,3],[21,1,62.6,1.3,1072,2,1,150,824.6,27.6,4],[42,1,45.5,1.31,1057,2,1,163,806.9,21.7,3],[31,0,48.8,1.48,969,0,0,131,654.7,28.2,2],[26,0,44.3,1.08,734,0,0,136,679.6,34.7,3],[43,1,113.2,1.45,962,3,1,134,663.4,29.9,4],[19,0,60.5,1.14,730,0,0,128,640.4,30.1,2],[37,1,124.2,1.5,1304,1,0,158,869.3,29.3,2],[45,1,52.4,1.2,956,2,0,161,796.7,25.2,3],[24,1,54.7,0.84,772,3,0,167,919.0,22.9,3],[25,1,88.1,1.41,1016,0,0,131,720.6,22.7,2],[52,0,59.7,1.23,836,2,0,151,679.7,34.3,3],[31,0,79.7,1.03,742,0,1,144,720.4,26.7,4],[34,0,51.0,1.42,1122,3,1,158,790.1,30.8,3],[53,1,84.2,1.67,1133,0,2,137,678.4,12.8,5],[57,1,122.1,1.13,750,0,0,134,663.7,27.4,3],[21,1,96.7,1.26,1046,2,0,151,830.2,25.0,3],[19,0,73.0,0.81,506,1,0,125,624.7,27.7,3],[23,1,114.8,1.47,1318,0,1,163,896.6,21.7,4],[59,0,65.5,1.4,1021,3,1,162,729.3,31.2,3],[21,0,50.3,1.08,832,0,0,154,770.4,32.2,3],[46,0,61.0,1.67,1150,0,2,153,688.6,17.8,4],[35,0,44.6,0.56,440,1,0,157,785.7,32.4,2],[43,0,58.2,1.04,580,2,1,124,557.7,26.4,3],[51,0,44.8,1.08,666,3,1,137,616.7,33.8,4],[27,1,87.5,1.75,1299,2,2,135,742.3,12.9,5],[53,1,51.8,1.23,773,2,1,127,628.5,21.3,3],[31,0,64.4,1.97,1418,2,2,144,719.8,17.3,5],[48,0,67.1,0.62,421,0,0,151,679.0,33.4,2],[32,1,85.9,1.99,1587,1,2,145,797.5,14.5,5],[25,0,65.4,0.89,627,0,0,141,704.5,27.6,3],[31,0,61.1,1.81,1358,3,2,150,750.3,18.6,4],[40,1,106.5,1.32,1176,1,1,162,890.9,21.0,4],[57,0,64.0,1.73,1004,2,2,129,580.3,15.2,5],[38,0,61.4,1.47,963,1,1,131,655.1,30.6,3],[33,0,40.5,1.07,786,3,1,147,734.6,31.9,4],[35,1,70.1,1.08,743,0,1,125,688.0,28.0,3],[41,1,94.1,1.13,777,0,1,139,687.6,23.4,4],[43,1,55.5,1.08,663,2,0,124,613.9,20.1,3],[42,0,53.7,1.37,875,0,0,142,638.7,29.8,3],[58,0,66.1,0.63,363,0,0,128,576.2,25.2,2],[46,1,103.9,1.18,864,3,0,148,732.2,20.9,2],[32,0,61.7,1.87,1262,1,2,135,674.9,16.6,5],[18,0,52.3,1.2,990,0,0,165,825.0,29.4,2],[42,0,59.5,1.78,1129,3,2,141,634.3,16.4,5],[24,0,72.9,0.86,546,3,0,127,634.9,30.8,3],[26,0,76.7,1.08,751,2,0,139,695.4,25.6,2],[41,1,72.1,1.13,744,3,1,133,658.4,21.4,3],[18,0,54.8,1.27,1003,2,1,158,789.8,32.0,4],[25,1,105.0,1.34,1150,0,1,156,858.2,21.4,3],[41,0,55.0,1.45,1103,2,1,169,760.7,31.4,4],[28,1,81.6,1.09,917,3,1,153,841.3,20.5,4],[34,0,75.6,0.64,416,1,0,130,650.0,29.1,2],[25,1,81.5,1.93,1688,1,2,159,874.6,10.9,4],[52,0,61.5,1.8,1231,0,2,152,683.9,15.5,4],[52,1,74.0,1.26,936,0,1,150,742.9,25.7,3],[50,0,56.4,1.26,924,1,0,163,733.3,34.3,3],[22,1,102.6,1.25,1052,2,1,153,841.6,20.5,3],[59,0,54.6,0.58,441,0,0,169,760.3,29.2,3],[56,1,129.0,1.29,805,3,0,126,624.0,27.1,2],[58,1,103.5,1.33,1106,0,0,168,831.6,24.6,3],[45,0,59.4,1.15,735,2,1,142,639.1,33.1,4],[24,0,60.1,1.97,1625,0,2,165,824.9,15.9,4],[26,1,77.7,1.16,804,3,1,126,693.1,29.6,3],[25,0,41.2,1.49,1073,3,1,144,720.1,28.9,4],[29,1,58.6,1.2,805,3,1,122,670.8,23.4,3],[51,1,109.3,0.54,420,2,0,157,777.8,28.7,3],[50,1,69.6,0.97,667,2,0,139,687.6,25.6,3],[40,0,56.2,1.79,1369,3,2,153,764.8,17.6,5],[41,1,71.7,0.51,424,3,0,168,831.4,27.3,2],[54,1,86.0,1.74,1404,2,2,163,806.9,12.9,5],[52,0,79.4,1.39,1020,2,1,163,733.8,26.6,3],[57,0,78.4,1.01,677,2,1,149,670.3,31.7,4],[39,0,55.4,1.44,979,1,1,136,679.9,26.3,3],[44,0,61.7,1.41,819,2,1,129,580.9,33.1,4],[52,1,85.5,1.78,1357,3,2,154,762.4,14.9,4],[18,1,87.6,1.72,1315,1,2,139,764.5,11.9,4],[52,1,82.4,1.01,685,2,1,137,678.2,24.4,4],[54,1,67.0,0.55,446,3,0,164,810.9,20.5,3],[31,0,42.3,1.09,888,0,1,163,814.7,25.1,3],[20,1,82.7,1.69,1357,1,2,146,803.0,14.6,5],[18,1,92.4,1.41,1303,3,0,168,924.1,21.3,2],[22,0,63.2,1.02,790,0,1,155,774.5,29.5,4],[43,1,82.7,1.22,858,3,1,142,703.3,28.2,4],[31,1,86.6,1.29,1071,2,1,151,830.2,28.9,3],[56,1,129.5,1.0,639,2,0,129,639.0,25.2,2],[44,1,98.0,1.28,824,0,1,130,643.8,25.7,4],[26,1,86.2,1.97,1701,2,2,157,863.5,13.3,5],[32,1,78.6,1.28,880,3,0,125,687.5,29.6,3],[32,0,59.0,0.51,408,0,0,160,800.0,31.0,2],[43,0,57.3,1.98,1479,3,2,166,747.0,17.8,4],[59,1,122.3,0.66,500,3,0,153,757.6,20.1,3],[30,1,85.3,1.61,1373,3,2,155,852.8,10.4,5],[49,0,45.2,1.24,870,2,1,156,701.6,30.8,3],[56,1,55.6,0.68,458,2,0,136,673.5,29.4,3],[49,1,82.8,1.91,1503,3,2,159,786.9,14.3,5],[21,1,125.2,1.38,1207,1,1,159,874.6,29.8,3],[47,0,58.5,1.42,837,3,1,131,589.4,30.3,4],[54,1,86.1,1.17,811,3,0,140,693.2,27.9,2],[40,0,63.5,1.31,1041,0,1,159,794.7,33.4,3],[56,1,69.3,0.66,451,3,0,138,683.3,26.5,2],[32,0,70.5,1.24,756,2,0,122,609.7,28.4,2],[46,0,60.1,1.69,1042,0,2,137,616.6,17.3,4],[53,1,94.1,0.89,608,1,0,138,683.1,28.6,3],[30,0,79.2,1.26,1046,0,1,166,830.2,28.0,4],[49,1,115.3,1.38,854,1,0,125,618.8,29.2,2],[24,0,62.9,1.42,958,0,1,135,674.6,27.3,4],[39,1,62.0,0.97,678,0,0,127,699.0,27.5,3],[45,1,88.5,1.53,1265,1,2,167,826.8,13.2,4],[19,0,73.9,1.28,877,2,1,137,685.2,32.5,3],[59,1,50.3,1.07,885,2,0,167,827.1,24.4,3],[23,1,83.1,0.7,624,2,0,162,891.4,29.3,3],[45,0,65.1,1.46,1038,0,0,158,711.0,31.3,3],[45,1,46.6,1.46,1214,3,1,168,831.5,22.9,3],[37,1,103.5,0.54,499,0,0,168,924.1,26.4,2],[47,0,61.9,1.95,1150,3,2,131,589.7,16.4,4],[28,0,52.0,1.32,1082,3,1,164,819.7,27.9,3],[45,1,113.4,0.83,530,2,0,129,638.6,24.0,2],[42,1,62.9,1.42,886,3,1,126,623.9,28.5,4],[56,0,40.4,1.23,913,0,1,165,742.3,30.0,4],[50,0,67.1,0.67,362,0,0,120,540.3,31.8,3],[18,1,70.0,1.3,1201,2,0,168,923.8,23.9,2],[44,0,69.5,1.02,711,1,0,155,697.1,27.6,3],[30,1,107.9,1.08,832,0,1,140,770.4,29.5,3],[58,1,109.0,1.49,1151,3,1,156,772.5,26.0,3],[20,1,101.0,1.36,1070,0,1,143,786.8,29.3,3],[56,1,88.5,1.57,1119,0,2,144,712.7,11.0,4],[23,1,80.9,1.55,1074,0,2,126,692.9,10.7,4],[25,0,43.1,1.04,837,1,1,161,804.8,33.6,4],[44,0,59.1,1.58,967,3,2,136,612.0,18.4,5],[26,0,54.0,1.14,844,2,0,148,740.4,26.9,3],[54,0,72.3,1.27,852,0,0,149,670.9,27.7,2],[50,1,51.1,0.92,574,3,0,126,623.9,28.0,2],[59,1,89.4,1.08,813,3,0,152,752.8,24.5,3],[41,1,51.5,1.09,680,2,1,126,623.9,26.7,4],[32,1,87.9,1.52,1195,0,2,143,786.2,11.6,5],[49,0,42.0,1.1,644,1,0,130,585.5,28.8,3],[49,1,79.2,1.46,925,3,0,128,633.6,29.9,3],[41,1,64.8,1.2,778,2,1,131,648.3,22.5,3],[58,0,63.0,1.58,1095,1,2,154,693.0,17.5,4],[29,0,56.2,0.68,418,3,0,123,614.7,33.4,3],[56,0,52.9,1.1,767,0,1,155,697.3,27.4,3],[19,0,49.0,1.05,772,3,0,147,735.2,29.2,3],[20,1,128.2,0.83,603,1,0,132,726.5,26.2,3],[54,1,83.6,1.54,1082,1,2,142,702.6,12.4,5],[34,0,56.2,1.81,1249,0,2,138,690.1,17.3,5],[19,1,87.8,1.28,1133,0,0,161,885.2,23.6,2],[19,1,85.9,1.66,1424,2,2,156,857.8,12.9,4],[45,1,51.1,1.44,1126,0,1,158,781.9,26.2,4],[40,0,57.4,1.87,1337,2,2,143,715.0,18.3,5],[54,1,114.9,1.2,802,1,1,135,668.3,20.7,4],[49,0,62.1,1.37,937,1,1,152,683.9,31.3,3],[50,1,57.1,1.09,707,3,1,131,648.6,29.5,4],[18,1,68.1,1.1,926,3,1,153,841.8,25.4,4],[36,1,69.2,1.23,852,2,0,126,692.7,27.2,3],[19,0,65.2,1.23,800,0,0,130,650.4,30.6,3],[43,1,108.6,1.33,988,0,0,150,742.9,28.5,2],[49,0,40.0,1.03,686,3,1,148,666.0,34.3,3],[23,0,41.9,0.56,370,1,0,132,660.7,26.8,3],[49,0,68.3,1.45,979,2,1,150,675.2,29.4,4],[21,1,88.4,1.71,1138,1,2,121,665.5,12.0,4],[28,1,66.0,1.18,1025,1,0,158,868.6,24.1,3],[34,1,71.9,1.26,929,0,1,134,737.3,21.3,4],[55,1,75.6,1.03,663,2,1,130,643.7,28.1,4],[41,0,63.4,1.84,1267,1,2,153,688.6,15.2,5],[22,0,71.6,1.49,1177,3,0,158,789.9,30.3,3],[51,0,57.4,1.08,598,3,1,123,553.7,31.6,4],[23,1,83.8,1.79,1280,0,2,130,715.1,11.0,4],[39,0,55.9,1.95,1443,3,2,148,740.0,19.5,5],[28,1,87.0,1.2,799,3,1,121,665.8,28.4,3],[33,0,65.3,1.18,796,1,1,135,674.6,29.7,4],[50,1,45.4,1.37,1071,3,1,158,781.8,24.1,4],[26,1,87.1,1.71,1241,3,2,132,725.7,11.2,4],[23,0,78.6,1.47,1147,1,1,156,780.3,32.3,4],[33,0,78.0,1.08,734,0,0,136,679.6,26.3,3],[46,0,58.0,1.83,1153,0,2,140,630.1,18.4,4],[20,0,71.3,1.28,1043,2,1,163,814.8,33.4,3],[37,1,49.1,1.11,842,3,1,138,758.6,22.3,3],[53,0,78.3,1.24,703,1,0,126,566.9,33.7,3],[36,0,57.3,1.13,887,2,1,157,785.0,25.3,4],[43,0,48.4,1.28,732,0,0,127,571.9,34.1,2],[20,1,76.4,1.35,980,0,1,132,725.9,21.2,4],[36,1,110.2,1.19,1021,1,0,156,858.0,26.5,2],[37,0,72.9,1.21,732,2,1,121,605.0,27.5,3],[49,1,82.1,1.87,1481,2,2,160,792.0,14.2,4],[24,0,58.9,0.63,410,1,0,130,650.8,30.1,3],[58,1,82.2,1.57,1111,1,2,143,707.6,10.7,4],[50,1,96.7,1.46,903,2,1,125,618.5,25.7,3],[57,1,81.4,1.8,1292,0,2,145,717.8,12.0,5],[56,1,107.8,1.09,680,3,1,126,623.9,26.6,3],[35,0,65.8,1.0,790,0,1,158,790.0,33.8,4],[57,0,68.5,1.45,900,1,1,138,620.7,29.1,4],[18,0,63.9,1.87,1169,2,2,125,625.1,16.4,4],[28,1,76.3,1.16,1034,2,1,162,891.4,20.1,3],[45,0,44.5,1.44,959,3,0,148,666.0,30.7,3],[42,0,50.7,1.29,940,2,1,162,728.7,29.0,3],[40,0,55.1,1.55,1224,3,2,158,789.7,16.9,4],[48,1,73.7,1.36,815,0,1,121,599.3,21.8,4],[47,1,55.6,1.2,820,0,1,138,683.3,24.3,4],[59,1,86.9,1.13,688,2,1,123,608.8,29.8,3],[52,0,60.3,1.6,900,2,2,125,562.5,16.5,4],[24,0,40.4,0.99,832,1,0,168,840.4,31.0,2],[33,0,78.5,1.29,1006,1,1,156,779.8,32.8,4],[43,1,102.6,0.82,597,2,0,147,728.0,27.5,2],[19,1,110.8,1.31,1074,2,0,149,819.8,23.3,2],[18,0,60.9,1.11,699,0,0,126,629.7,31.1,2],[29,1,55.7,1.41,993,2,0,128,704.3,28.7,3],[22,1,110.5,1.16,919,1,1,144,792.2,20.2,3],[54,1,55.2,0.77,579,0,0,152,751.9,24.4,2],[49,1,46.5,1.4,832,3,1,120,594.3,22.2,4],[26,0,70.9,0.81,506,1,0,125,624.7,28.9,3],[58,1,74.6,1.09,739,1,0,137,678.0,24.2,2],[52,1,45.1,0.93,594,0,0,129,638.7,27.5,2],[36,1,99.9,1.33,1075,3,0,147,808.3,20.9,3],[33,1,117.0,1.04,744,1,1,130,715.4,25.1,3],[20,0,75.9,1.39,1056,2,1,152,759.7,30.6,4],[37,0,71.2,1.11,666,1,1,120,600.0,29.9,3],[41,1,78.8,1.01,660,0,1,132,653.5,27.3,4],[50,1,50.6,1.31,1012,0,0,156,772.5,23.8,2],[41,1,82.5,1.69,1163,0,2,139,688.2,14.7,4],[28,1,108.5,1.33,878,1,1,120,660.2,24.8,4],[25,1,49.9,1.15,772,3,1,122,671.3,25.7,3],[53,1,125.1,0.52,353,2,0,137,678.8,28.3,2],[55,0,79.7,1.06,763,0,0,160,719.8,27.8,2],[57,1,126.8,0.96,632,3,0,133,658.3,20.8,2],[37,0,54.6,1.31,982,2,0,150,749.6,32.1,3],[52,0,47.8,1.34,880,0,1,146,656.7,29.8,3],[42,1,97.9,1.01,680,2,1,136,673.3,29.0,3],[52,0,63.1,1.36,1010,2,1,165,742.6,34.8,3],[42,0,72.4,1.07,713,3,1,148,666.4,29.0,3],[46,0,58.9,1.52,1060,2,2,155,697.4,17.1,4],[35,0,50.4,1.03,803,0,1,156,779.6,29.1,4],[35,0,64.2,1.63,1182,3,2,145,725.2,16.6,5],[19,0,58.8,1.4,952,1,0,136,680.0,32.8,2],[52,1,105.2,1.36,949,1,0,141,697.8,27.6,3],[33,0,45.9,0.92,662,3,0,144,719.6,29.8,3],[58,0,65.2,1.12,610,1,1,121,544.6,25.4,3],[53,0,56.3,1.52,964,2,2,141,634.2,16.5,5],[50,1,90.0,0.81,497,0,0,124,613.6,22.9,2],[21,0,60.0,1.97,1212,2,2,123,615.2,19.1,5],[50,1,51.5,1.48,1136,3,0,155,767.6,20.9,2],[31,0,63.1,1.54,962,0,2,125,624.7,19.0,4],[38,1,91.5,0.8,616,3,0,140,770.0,26.7,2],[37,1,48.7,1.39,1009,3,0,132,725.9,27.3,2],[25,0,57.8,1.35,1053,3,1,156,780.0,29.3,3],[24,0,42.0,0.83,598,2,0,144,720.5,31.8,3],[20,1,128.4,0.63,502,0,0,145,796.8,26.1,2],[34,0,74.2,1.47,1161,0,0,158,789.8,32.7,3],[50,1,89.6,1.79,1232,0,2,139,688.3,12.2,5],[29,1,125.9,1.36,1137,2,1,152,836.0,24.7,4],[39,1,105.5,0.81,593,1,0,133,732.1,26.4,2],[39,1,93.4,1.1,938,2,1,155,852.7,21.1,4],[47,1,82.1,1.37,922,2,1,136,673.0,24.4,4],[55,0,42.9,0.9,567,3,0,140,630.0,34.7,2],[55,1,128.4,1.13,923,0,1,165,816.8,20.4,4],[25,1,112.4,1.42,1054,0,0,135,742.3,23.2,2],[44,0,77.7,1.41,1047,1,0,165,742.6,28.1,3],[44,1,89.3,1.4,936,1,1,135,668.6,26.3,4],[51,0,70.3,1.4,876,3,0,139,625.7,26.1,3],[38,0,59.1,1.07,792,0,1,148,740.2,31.3,3],[47,0,49.9,1.48,979,1,1,147,661.5,26.0,3],[50,1,101.7,0.53,333,1,0,127,628.3,20.9,2],[45,1,93.0,1.03,729,0,1,143,707.8,27.3,3],[50,1,87.4,0.77,465,2,0,122,603.9,23.2,2],[22,0,55.1,1.62,1166,1,2,144,719.8,19.9,4],[36,1,123.7,1.3,987,0,1,138,759.2,20.4,4],[21,0,61.3,1.94,1474,1,2,152,759.8,17.2,4],[52,1,72.3,1.46,874,3,1,121,598.6,21.1,3],[34,0,69.2,1.36,911,1,0,134,669.9,28.5,2],[45,1,81.4,1.14,796,0,1,141,698.2,30.0,4],[47,1,84.8,1.85,1181,1,2,129,638.4,14.4,5],[46,1,55.1,1.43,970,3,1,137,678.3,20.5,3],[23,0,59.0,1.67,1177,3,2,141,704.8,17.8,5],[52,0,64.9,1.83,1359,1,2,165,742.6,18.2,4],[58,1,109.7,1.01,840,1,0,168,831.7,22.1,2],[54,1,78.4,0.81,585,3,0,146,722.2,21.5,2],[41,0,76.7,1.4,832,3,1,132,594.3,34.0,4],[46,0,63.1,1.0,684,2,1,152,684.0,34.7,4],[48,0,62.9,1.98,1105,2,2,124,558.1,20.0,4],[52,1,85.6,1.84,1321,3,2,145,717.9,13.9,4],[50,0,66.3,1.25,742,1,0,132,593.6,31.6,2],[38,1,61.3,1.37,1100,0,0,146,802.9,23.5,3],[49,0,44.1,1.16,694,1,1,133,598.3,26.7,4],[40,1,63.8,1.3,1022,1,0,143,786.2,20.8,2],[50,0,55.4,1.85,1016,2,2,122,549.2,18.5,4],[20,0,74.7,1.04,863,2,1,166,829.8,32.8,3],[35,0,78.0,1.13,949,2,1,168,839.8,33.3,4],[42,0,57.5,1.14,764,3,0,149,670.2,34.1,2],[59,0,60.7,1.03,714,3,1,154,693.2,33.8,3],[48,1,69.0,1.48,1223,1,1,167,826.4,30.0,3],[20,0,75.8,1.42,944,1,1,133,664.8,27.4,4],[57,0,75.7,0.69,407,0,0,131,589.9,32.6,3],[41,0,71.2,1.42,939,1,1,147,661.3,30.9,3],[49,1,85.0,1.82,1468,1,2,163,806.6,11.3,4],[39,0,63.6,1.22,903,2,0,148,740.2,34.8,2],[40,1,73.2,0.81,722,2,0,162,891.4,29.0,2],[19,0,48.3,0.96,653,2,0,136,680.2,26.3,2],[44,0,42.8,1.49,1066,2,1,159,715.4,25.3,3],[59,1,88.1,1.35,1123,2,1,168,831.9,26.9,3],[19,0,72.4,1.2,840,0,1,140,700.0,31.0,4],[43,1,73.2,1.17,822,0,0,142,702.6,29.4,3],[34,1,110.5,1.42,1086,0,0,139,764.8,22.3,2],[57,0,46.1,1.44,842,2,1,130,584.7,25.8,3],[50,1,90.8,1.07,810,3,1,153,757.0,22.6,4],[26,0,59.3,1.7,1096,2,2,129,644.7,15.1,5],[56,0,45.1,0.83,482,2,0,129,580.7,25.4,3],[46,1,45.0,1.48,1187,0,1,162,802.0,29.1,3],[59,1,89.4,1.43,885,2,1,125,618.9,23.5,3],[43,1,127.7,1.14,875,0,1,155,767.5,24.1,3],[52,1,70.9,1.31,927,2,1,143,707.6,20.2,3],[42,0,49.2,1.15,678,1,1,131,589.6,27.7,3],[41,0,62.3,1.99,1451,3,2,162,729.1,19.0,5],[30,1,64.1,0.64,500,3,0,142,781.2,26.2,2],[24,0,69.7,1.41,1029,0,0,146,729.8,32.5,3],[53,0,56.9,1.49,1100,1,1,164,738.3,29.5,3],[37,0,53.0,1.13,881,3,1,156,779.6,28.1,4],[18,0,72.7,0.84,525,0,0,125,625.0,29.8,3],[25,1,76.5,0.67,442,2,0,120,659.7,23.2,3],[33,1,113.6,1.38,949,2,0,125,687.7,28.4,2],[31,0,62.5,1.56,1318,1,2,169,844.9,16.5,4],[29,1,95.2,0.64,496,3,0,141,775.0,26.6,2],[40,1,51.7,0.9,792,2,0,160,880.0,21.4,3],[32,1,105.3,0.57,448,0,0,143,786.0,26.9,3],[45,0,71.2,1.37,888,2,0,144,648.2,34.1,3],[51,0,78.1,0.92,555,2,0,134,603.3,31.1,3],[19,0,50.6,1.21,877,3,1,145,724.8,30.6,3],[49,1,70.2,0.7,440,3,0,127,628.6,29.6,3],[40,0,62.6,1.93,1380,0,2,143,715.0,18.1,5],[39,0,60.6,0.92,768,1,0,167,834.8,27.6,3],[42,1,76.4,1.14,886,1,1,157,777.2,22.9,3],[39,0,63.3,1.88,1175,2,2,125,625.0,18.5,4],[39,0,68.6,1.33,1024,0,1,154,769.9,32.4,3],[59,1,123.3,1.3,1036,1,1,161,796.9,23.0,4],[23,1,107.0,1.35,891,1,0,120,660.0,23.5,2],[32,1,68.3,1.42,1289,2,0,165,907.7,29.9,2],[54,0,47.8,1.19,830,0,1,155,697.5,26.0,4],[50,0,58.4,1.6,943,1,2,131,589.4,17.0,4],[25,0,74.3,1.43,1123,3,1,157,785.3,25.6,3],[22,1,106.8,1.0,715,3,1,130,715.0,28.2,4],[56,1,125.5,1.26,817,2,1,131,648.4,20.9,4],[21,0,55.2,1.37,1103,2,1,161,805.1,31.7,4],[23,0,71.4,1.25,1056,2,0,169,844.8,25.6,2],[49,1,77.7,1.03,806,2,1,158,782.5,26.7,3],[47,1,88.4,1.86,1160,1,2,126,623.7,14.2,5],[52,1,104.8,0.93,598,0,0,130,643.0,24.0,2],[57,1,82.2,1.15,882,2,1,155,767.0,25.2,4],[33,0,68.2,0.85,638,2,0,150,750.6,29.0,2],[30,1,91.4,1.37,1145,1,1,152,835.8,23.0,3],[59,0,42.1,1.22,725,2,0,132,594.3,33.0,2],[47,0,68.7,1.37,845,2,1,137,616.8,27.7,3],[36,0,47.2,1.5,1200,0,1,160,800.0,32.2,4],[34,1,92.0,0.73,574,3,0,143,786.3,22.1,3],[36,1,56.2,1.09,767,2,1,128,703.7,22.5,4],[45,1,58.4,1.31,973,1,1,150,742.7,23.4,4],[43,1,82.9,1.9,1505,0,2,160,792.1,12.9,5],[54,0,66.9,1.24,720,1,0,129,580.6,29.5,2],[43,1,66.3,1.18,707,0,0,121,599.2,27.5,2],[40,1,93.6,1.38,1192,0,0,157,863.8,22.1,3],[26,0,64.1,1.93,1293,2,2,134,669.9,15.1,5],[29,1,86.7,1.52,1020,2,2,122,671.1,13.9,4],[18,0,62.0,1.23,996,2,1,162,809.8,33.2,4],[18,0,58.1,1.9,1425,3,2,150,750.0,15.3,4],[51,0,64.9,1.49,838,3,1,125,562.4,31.1,4],[49,0,69.3,1.14,626,1,1,122,549.1,28.8,4],[42,0,42.7,1.04,608,2,0,130,584.6,32.9,3],[57,0,51.4,1.2,724,3,1,134,603.3,33.7,4],[18,0,67.4,0.6,492,2,0,164,820.0,33.5,3],[33,0,55.6,1.77,1301,3,2,147,735.0,18.9,4],[56,1,125.3,1.0,639,3,1,129,639.0,22.7,3],[22,1,102.1,1.48,1278,0,1,157,863.5,28.1,4],[39,1,61.9,1.32,1205,2,0,166,912.9,25.3,3],[46,1,108.8,1.4,1171,2,0,169,836.4,20.5,3],[20,0,51.1,0.5,422,3,0,169,844.0,29.6,2],[29,1,81.7,1.45,1005,2,0,126,693.1,29.4,2],[43,0,42.7,0.73,440,3,0,134,602.7,33.9,2],[33,1,81.8,1.59,1198,2,2,137,753.5,10.5,4],[54,1,54.6,1.28,868,0,1,137,678.1,27.4,4],[39,1,107.7,0.72,634,2,0,160,880.6,28.1,2],[46,0,56.9,0.88,566,0,0,143,643.2,27.7,3],[31,1,78.8,1.49,992,1,1,121,665.8,24.7,4],[45,0,48.2,1.25,894,2,1,159,715.2,32.1,4],[22,0,50.7,1.27,883,2,1,139,695.3,29.4,3],[47,1,86.6,1.98,1500,2,2,153,757.6,10.6,4],[22,1,96.3,1.35,1203,0,1,162,891.1,27.1,4],[29,1,80.8,1.65,1316,2,2,145,797.6,14.6,5],[33,0,58.0,1.84,1159,2,2,126,629.9,18.3,5],[43,1,95.9,1.28,995,3,0,157,777.3,27.7,2],[43,0,61.5,1.86,1247,1,2,149,670.4,16.8,5],[38,0,40.6,0.62,499,0,0,161,804.8,26.8,2],[56,1,82.5,1.51,927,3,2,124,613.9,13.2,5],[53,1,105.1,0.69,444,0,0,130,643.5,23.3,3],[50,0,58.1,1.93,1042,3,2,120,539.9,19.3,5],[47,0,61.0,1.54,1060,1,2,153,688.3,15.6,5],[54,0,64.5,1.74,940,3,2,120,540.2,17.2,4],[40,1,58.2,1.43,1085,0,1,138,758.7,24.0,3],[27,0,69.5,0.94,569,2,0,121,605.3,34.4,3],[22,1,62.2,0.51,393,2,0,140,770.6,21.5,3],[53,0,68.0,1.06,663,1,1,139,625.5,25.1,4],[51,0,56.3,1.43,914,0,0,142,639.2,27.4,3],[48,1,94.5,1.01,700,0,1,140,693.1,28.2,3],[27,0,58.0,1.39,994,0,0,143,715.1,27.1,2],[36,1,84.0,1.8,1218,1,2,123,676.7,11.2,5],[49,1,61.0,1.14,739,2,1,131,648.2,21.3,4],[18,0,64.8,1.98,1396,3,2,141,705.1,18.6,5],[22,1,45.7,1.04,795,1,0,139,764.4,20.7,3],[21,1,80.9,1.8,1356,3,2,137,753.3,11.7,4],[33,0,64.1,1.58,948,2,2,120,600.0,16.4,5],[41,1,67.0,1.22,900,1,1,149,737.7,25.6,3],[33,1,106.5,1.4,1170,2,1,152,835.7,27.3,4],[19,1,95.1,1.21,952,3,1,143,786.8,25.3,4],[45,0,65.5,0.66,395,0,0,133,598.5,34.3,2],[49,1,105.7,1.2,921,0,1,155,767.5,29.5,3],[44,0,48.0,0.88,491,3,0,124,558.0,28.6,2],[37,0,69.5,0.69,448,0,0,130,649.3,32.8,2],[41,1,66.1,0.77,545,3,0,143,707.8,27.4,2],[29,1,68.0,0.76,627,1,0,150,825.0,28.9,2],[52,1,50.3,0.85,555,1,0,132,652.9,24.5,2],[50,0,69.3,1.2,729,1,0,135,607.5,30.3,2],[50,1,86.7,1.7,1203,0,2,143,707.6,12.1,4],[54,1,125.9,1.35,882,2,1,132,653.3,28.5,3],[29,1,88.1,1.88,1479,0,2,143,786.7,11.1,5],[20,1,124.3,1.25,997,0,1,145,797.6,22.4,3],[18,1,62.0,0.88,586,2,0,121,665.9,23.7,3],[50,0,69.7,1.24,753,2,1,135,607.3,27.3,4],[57,0,60.9,1.31,926,2,1,157,706.9,30.6,3],[27,1,76.5,1.13,1025,2,0,165,907.1,21.3,2],[46,1,94.7,1.47,873,0,1,120,593.9,23.2,3],[30,1,67.9,1.25,1155,3,0,168,924.0,29.1,2],[29,1,121.1,1.31,937,1,1,130,715.3,24.1,4],[48,0,71.5,1.46,1012,3,1,154,693.2,32.5,4],[19,1,98.6,0.83,740,0,0,162,891.6,21.1,2],[52,0,68.2,1.17,779,2,0,148,665.8,27.5,3],[40,0,57.7,1.18,920,1,1,156,779.7,33.1,4],[34,1,124.6,1.41,1055,1,1,136,748.2,27.6,3],[43,0,73.0,1.31,931,3,0,158,710.7,28.9,3],[25,0,59.4,1.62,1304,0,2,161,804.9,19.8,5],[46,0,52.0,0.7,463,0,0,147,661.4,34.1,2],[43,0,42.2,1.33,886,0,1,148,666.2,34.6,3],[27,1,89.3,1.82,1622,1,2,162,891.2,12.1,4],[43,1,110.0,1.09,658,3,0,122,603.7,22.0,3],[51,0,66.2,0.86,499,1,0,129,580.2,31.3,3],[58,1,58.6,1.21,964,1,0,161,796.7,26.8,2],[24,1,51.0,0.97,710,2,0,133,732.0,21.3,3],[21,1,101.5,0.97,699,3,0,131,720.6,27.9,3],[28,1,114.2,1.05,959,2,1,166,913.3,20.2,3],[46,1,54.4,0.91,725,0,0,161,796.7,24.8,2],[53,0,52.4,1.34,898,1,1,149,670.1,28.3,3],[42,1,85.2,1.54,1151,3,2,151,747.4,13.7,5],[38,1,83.6,1.66,1379,0,2,151,830.7,11.6,5],[53,1,115.4,1.36,1084,3,1,161,797.1,28.3,4],[27,1,71.2,0.74,615,1,0,151,831.1,25.9,3],[54,0,78.1,1.1,718,3,1,145,652.7,32.9,4],[26,0,54.2,1.07,642,0,1,120,600.0,34.9,4],[41,0,77.6,1.27,920,2,1,161,724.4,31.8,4],[52,0,44.1,1.41,768,1,0,121,544.7,34.8,3],[52,1,85.5,1.7,1144,2,2,136,672.9,10.1,5],[53,0,47.8,1.06,711,1,1,149,670.8,28.4,4],[35,1,102.5,0.84,730,0,0,158,869.0,21.1,2],[56,1,118.0,0.66,412,1,0,126,624.2,22.6,2],[49,1,82.3,1.29,932,2,1,146,722.5,28.4,4],[41,1,81.6,1.87,1185,1,2,128,633.7,10.2,5],[40,1,60.2,1.22,946,0,1,141,775.4,25.2,3],[49,0,49.2,1.28,881,1,1,153,688.3,30.7,3],[54,0,46.6,1.38,1025,2,0,165,742.8,30.6,2],[29,0,68.7,1.08,907,0,1,168,839.8,29.8,4],[30,0,60.6,1.3,780,2,1,120,600.0,32.9,3],[40,1,52.1,0.87,612,1,0,128,703.4,21.3,2],[42,0,46.6,0.61,382,3,0,139,626.2,28.1,2],[52,1,65.5,1.48,1011,2,1,138,683.1,26.2,4],[58,0,44.2,1.08,753,1,0,155,697.2,31.9,3],[47,1,89.1,1.44,1133,3,1,159,786.8,24.0,3],[34,1,65.9,0.81,731,3,0,164,902.5,28.8,2],[37,0,55.6,0.97,597,0,0,123,615.5,29.2,2],[42,1,63.7,1.37,868,3,0,128,633.6,24.0,2],[39,1,86.2,1.96,1725,2,2,160,880.1,10.2,5],[30,0,59.2,1.85,1304,2,2,141,704.9,17.8,4],[36,1,85.4,1.98,1492,3,2,137,753.5,13.5,5],[53,0,68.1,1.41,831,1,1,131,589.4,26.1,4],[29,0,60.0,0.85,684,2,0,161,804.7,28.1,2],[58,0,74.8,1.28,933,2,1,162,728.9,32.8,4],[36,1,90.3,1.38,1199,0,1,158,868.8,23.7,4],[29,1,86.1,1.66,1169,1,2,128,704.2,11.2,4],[26,1,73.7,0.93,639,3,0,125,687.1,26.7,2],[24,0,67.7,1.42,980,1,1,138,690.1,27.0,3],[45,1,78.3,1.29,1066,0,0,167,826.4,29.0,3],[31,0,48.2,1.1,913,0,0,166,830.0,26.1,2],[48,0,56.8,1.37,777,1,1,126,567.2,32.1,4],[36,1,112.4,1.02,757,0,1,135,742.2,25.0,4],[33,0,59.0,0.9,558,0,0,124,620.0,33.7,3],[22,1,98.4,0.52,386,0,0,135,742.3,21.3,2],[52,1,66.5,1.34,796,1,1,120,594.0,26.8,4],[29,1,106.5,1.29,1107,0,1,156,858.1,25.7,4],[42,1,88.4,1.68,1314,3,2,158,782.1,12.4,4],[38,1,88.4,1.74,1321,3,2,138,759.2,12.5,5],[53,0,53.3,1.37,962,2,1,156,702.2,32.2,3],[40,0,58.1,0.61,415,3,0,136,680.3,34.4,2],[33,0,74.2,1.15,834,2,1,145,725.2,25.9,4],[56,1,84.6,1.01,705,1,1,141,698.0,20.2,4],[59,1,78.0,0.72,453,0,0,127,629.2,28.1,3],[56,1,89.0,1.77,1332,3,2,152,752.5,10.5,5],[31,0,42.7,1.46,883,2,0,121,604.8,34.9,3],[48,1,83.9,1.9,1401,1,2,149,737.4,13.1,5],[22,0,78.7,1.45,1204,2,1,166,830.3,31.5,3],[52,0,65.9,1.27,794,0,1,139,625.2,27.0,4],[40,1,76.9,1.13,851,3,1,137,753.1,22.4,4],[46,1,84.3,1.83,1467,1,2,162,801.6,13.3,5],[28,0,62.4,1.1,710,2,1,129,645.5,34.1,3],[35,1,63.7,1.03,810,1,1,143,786.4,29.8,4],[29,0,54.9,1.48,910,2,0,123,614.9,27.0,3],[26,1,76.4,1.17,1004,2,1,156,858.1,21.3,3],[27,1,106.4,1.34,907,0,0,123,676.9,20.6,2],[34,0,68.4,1.37,904,0,1,132,659.9,33.7,4],[55,1,63.5,1.36,969,2,1,144,712.5,22.9,4],[24,0,59.4,1.25,825,3,1,132,660.0,25.0,3],[30,1,113.4,1.27,957,1,0,137,753.5,22.2,3],[57,0,61.9,0.92,592,1,0,143,643.5,28.4,3],[59,0,70.7,1.17,637,0,1,121,544.4,34.9,3],[26,1,111.5,1.02,937,3,0,167,918.6,25.2,2],[44,0,72.1,1.4,958,2,0,152,684.3,27.0,2],[19,1,56.9,0.61,463,0,0,138,759.0,23.3,3],[22,1,86.2,1.91,1345,2,2,128,704.2,11.7,5],[46,1,59.4,1.16,844,2,1,147,727.6,20.2,4],[54,0,75.6,0.97,672,0,0,154,692.8,26.4,3],[55,0,76.3,1.08,768,3,0,158,711.1,32.0,3],[36,1,95.8,1.37,972,1,0,129,709.5,21.2,3],[25,1,120.6,1.04,686,0,1,120,659.6,22.3,3],[18,0,65.3,1.42,1143,3,1,161,804.9,28.5,3],[39,1,85.3,0.77,593,2,0,140,770.1,27.6,2],[34,1,68.0,0.67,472,0,0,128,704.5,25.8,2],[24,0,52.6,1.29,1071,1,0,166,830.2,31.9,2],[42,1,63.3,1.32,876,1,1,134,663.6,25.7,3],[21,0,76.3,1.14,878,2,1,154,770.2,31.8,3],[53,1,61.0,0.54,331,0,0,124,613.0,20.0,3],[23,0,67.8,1.34,1072,1,0,160,800.0,34.3,2],[48,1,114.9,1.36,949,0,0,141,697.8,21.1,3],[36,1,88.0,1.87,1646,1,2,160,880.2,12.0,5],[56,0,67.7,1.45,927,2,0,142,639.3,32.7,2],[44,1,124.8,1.35,842,2,1,126,623.7,24.4,4],[27,0,53.0,1.26,895,0,1,142,710.3,34.5,4],[43,1,61.2,1.03,831,3,0,163,806.8,24.7,3],[36,0,48.7,1.23,886,3,0,144,720.3,33.7,3],[56,0,50.6,1.29,848,2,0,146,657.4,33.1,2],[20,0,72.6,1.27,1016,1,1,160,800.0,34.8,3],[30,0,70.4,1.03,644,3,1,125,625.2,34.3,4],[45,1,52.5,1.08,818,2,1,153,757.4,29.0,4],[37,1,76.3,1.36,957,1,1,128,703.7,27.3,4],[45,0,41.2,1.47,1111,1,0,168,755.8,28.7,2],[25,0,55.3,1.56,1186,3,2,152,760.3,15.5,4],[58,0,49.7,1.38,776,2,1,125,562.3,31.9,4],[56,1,48.3,0.68,525,1,0,156,772.1,29.8,3],[18,1,83.2,1.83,1510,1,2,150,825.1,13.6,4],[20,1,120.5,1.01,850,0,1,153,841.6,29.3,3],[30,1,121.6,1.24,1091,0,1,160,879.8,28.0,4],[45,0,73.0,1.14,759,3,1,148,665.8,26.6,4],[42,0,57.5,1.76,1053,0,2,133,598.3,16.2,5],[50,0,42.7,1.41,983,2,1,155,697.2,28.4,4],[55,1,129.9,0.69,529,3,0,155,766.7,21.7,3],[23,1,108.6,0.89,656,3,0,134,737.1,25.8,2],[49,1,88.6,1.83,1150,0,2,127,628.4,14.9,4],[38,0,49.7,1.25,906,1,0,145,724.8,32.6,3],[33,0,56.4,1.06,822,2,0,155,775.5,29.2,3],[38,1,46.9,1.03,946,2,1,167,918.4,20.0,4],[28,0,71.3,1.46,1022,2,1,140,700.0,28.1,4],[54,1,71.6,1.14,830,3,1,147,728.1,25.3,3],[53,1,82.3,1.87,1139,2,2,123,609.1,11.6,5],[52,0,70.6,1.36,826,1,0,135,607.4,26.1,3],[36,1,109.8,0.84,651,1,0,141,775.0,24.4,3],[37,0,73.5,0.54,354,0,0,131,655.6,27.5,2],[35,1,85.6,1.78,1322,2,2,135,742.7,14.5,5],[58,0,74.6,1.03,737,3,1,159,715.5,26.0,4],[31,0,63.2,0.59,463,0,0,157,784.7,25.5,2],[32,0,62.6,1.67,1344,1,2,161,804.8,15.0,5],[48,1,87.1,1.81,1398,2,2,156,772.4,11.6,5],[18,1,82.3,1.73,1408,1,2,148,813.9,13.3,5],[20,0,64.3,1.71,1171,0,2,137,684.8,18.7,4],[33,0,53.7,1.25,806,1,0,129,644.8,29.5,3],[40,1,63.0,1.42,1257,2,1,161,885.2,26.8,4],[28,1,128.4,1.06,921,2,1,158,868.9,23.6,4],[29,1,88.0,1.75,1319,0,2,137,753.7,13.3,5],[27,0,63.7,1.19,714,2,1,120,600.0,25.4,4],[49,1,83.7,1.29,1009,1,1,158,782.2,23.9,4],[33,1,102.6,1.4,1078,1,1,140,770.0,27.9,3],[25,0,77.7,0.55,330,3,0,120,600.0,33.0,2],[55,1,87.5,1.19,789,3,1,134,663.0,27.2,4],[29,1,87.0,1.52,1028,3,2,123,676.3,11.0,4],[41,1,82.8,1.97,1355,1,2,139,687.8,11.2,5],[45,0,65.4,0.76,441,1,0,129,580.3,35.0,3],[25,0,47.2,0.89,632,0,0,142,710.1,26.0,2],[45,0,58.2,0.95,684,3,0,160,720.0,26.8,3],[53,0,73.5,1.17,806,1,1,153,688.9,26.3,4],[43,0,55.2,1.67,1240,0,2,165,742.5,16.6,5],[25,0,64.4,1.12,935,1,0,167,834.8,27.1,3],[45,0,73.5,1.18,807,0,1,152,683.9,30.0,4],[45,1,89.6,1.7,1287,3,2,153,757.1,12.4,5],[54,1,86.5,1.48,1158,3,1,158,782.4,29.0,3],[58,0,46.1,1.28,743,3,1,129,580.5,25.3,4],[53,1,68.5,1.3,894,1,1,139,687.7,23.2,3],[44,1,94.6,1.26,748,1,1,120,593.7,26.0,4],[34,0,54.2,1.13,746,0,0,132,660.2,31.0,3],[26,1,47.7,1.15,759,2,1,120,660.0,24.8,3],[50,1,52.2,1.38,847,2,1,124,613.8,28.2,4],[37,1,88.8,1.58,1173,3,2,135,742.4,10.3,5],[30,1,101.0,1.46,1076,2,1,134,737.0,28.2,4],[45,1,118.4,1.06,881,3,1,168,831.1,24.9,3],[46,0,47.9,1.41,933,0,0,147,661.7,26.3,3],[30,0,51.5,1.08,810,2,1,150,750.0,33.9,3],[52,0,79.9,0.75,479,2,0,142,638.7,31.5,3],[23,1,121.3,0.72,661,3,0,167,918.1,21.6,2],[35,0,78.9,1.28,1050,0,1,164,820.3,25.3,4],[22,1,88.5,1.88,1675,2,2,162,891.0,10.7,5],[42,1,73.5,0.52,350,2,0,136,673.1,26.1,3],[19,1,127.9,1.27,1173,2,1,168,923.6,21.8,4],[27,1,88.5,1.8,1515,0,2,153,841.7,11.1,4],[47,0,43.4,0.51,303,0,0,132,594.1,25.3,3],[22,0,42.8,1.47,978,2,1,133,665.3,32.2,3],[50,1,64.5,1.17,753,3,1,130,643.6,28.1,4],[18,0,50.7,1.29,948,3,1,147,734.9,33.0,3],[35,1,59.2,1.3,1151,2,0,161,885.4,21.3,3],[49,0,78.9,1.38,938,0,0,151,679.7,34.0,2],[28,0,78.7,1.1,847,2,1,154,770.0,31.7,3],[38,1,68.7,1.31,1081,0,1,150,825.2,29.0,4],[43,0,53.1,0.82,502,2,0,136,612.2,29.5,2],[42,1,64.8,1.1,904,0,1,166,821.8,24.4,3],[39,0,50.3,1.17,749,1,0,128,640.2,32.8,2],[44,1,102.3,1.34,856,3,1,129,638.8,20.9,4],[30,1,62.9,1.13,789,1,0,127,698.2,25.2,2],[50,0,56.5,1.88,1184,3,2,140,629.8,19.2,5],[51,0,74.6,0.71,422,0,0,132,594.4,33.3,2],[58,1,52.0,1.12,937,1,0,169,836.6,29.6,3],[52,0,52.1,1.5,837,3,0,124,558.0,32.0,2],[18,0,72.2,0.97,606,2,0,125,624.7,27.1,2],[38,1,85.8,1.72,1410,0,2,149,819.8,10.1,4],[23,1,81.4,1.6,1320,0,2,150,825.0,12.4,4],[45,0,50.9,1.45,887,2,0,136,611.7,30.1,2],[34,1,52.0,1.38,987,2,1,130,715.2,22.4,4],[22,1,71.0,1.42,1086,3,1,139,764.8,21.2,4],[48,1,80.6,1.51,1248,0,2,167,826.5,12.9,4],[22,0,58.3,1.0,640,3,1,128,640.0,32.6,3],[55,0,63.0,1.32,719,2,0,121,544.7,34.9,3],[20,1,111.0,1.02,875,0,1,156,857.8,27.6,4],[40,0,52.6,1.27,762,2,1,120,600.0,32.9,3],[54,1,116.4,1.13,688,3,0,123,608.8,26.2,3],[54,0,75.6,1.41,983,3,1,155,697.2,34.9,4],[27,1,61.6,1.48,1172,3,0,144,791.9,26.4,2],[27,1,108.0,1.38,926,0,1,122,671.0,28.6,4],[36,0,59.3,0.99,634,2,0,128,640.4,34.5,3],[34,1,75.7,1.18,915,2,1,141,775.4,29.3,4],[38,0,56.3,1.21,859,3,1,142,709.9,28.8,4],[31,0,58.2,1.17,766,3,1,131,654.7,25.8,3],[26,1,55.7,1.13,802,3,0,129,709.7,21.7,3],[18,1,125.9,1.46,1229,3,1,153,841.8,20.6,3],[30,0,62.7,1.02,826,1,1,162,809.8,26.1,4],[21,1,86.6,1.37,972,1,1,129,709.5,21.8,3],[18,1,64.5,1.2,983,1,1,149,819.2,23.4,3],[57,1,76.6,1.14,796,3,1,141,698.2,25.4,4],[49,1,81.4,1.98,1225,3,2,125,618.7,13.6,5],[51,1,60.7,1.14,954,2,0,169,836.8,22.1,2],[45,0,57.2,1.67,909,0,2,121,544.3,18.4,5],[48,0,73.0,1.19,798,2,1,149,670.6,32.0,3],[25,1,123.8,1.13,752,1,0,121,665.5,25.6,3],[56,1,93.6,1.37,1024,2,0,151,747.4,29.0,2],[43,1,76.8,1.24,988,3,0,161,796.8,21.1,3],[51,0,54.7,1.11,674,1,1,135,607.2,26.8,4],[20,1,92.3,1.14,821,1,1,131,720.2,24.3,3],[29,0,71.8,1.2,720,0,1,120,600.0,26.3,4],[18,0,66.9,1.07,679,0,1,127,634.6,30.7,3],[22,0,48.7,1.37,1144,1,1,167,835.0,29.0,4],[47,1,66.2,1.42,1188,1,0,169,836.6,22.8,3],[47,0,40.0,0.8,475,2,0,132,593.8,26.7,3],[34,1,112.4,1.18,870,1,1,134,737.3,23.4,4],[40,0,70.0,0.85,693,3,0,163,815.3,31.1,3],[32,1,84.0,1.45,1013,2,0,127,698.6,25.8,3],[54,0,43.8,1.29,749,3,1,129,580.6,26.6,4],[38,1,123.3,1.34,1216,3,1,165,907.5,21.2,4],[31,0,57.9,1.8,1116,3,2,124,620.0,15.1,5],[19,1,82.4,1.9,1766,1,2,169,929.5,10.1,5],[28,1,84.8,1.35,1025,0,1,138,759.3,28.8,4],[56,1,109.6,1.29,1060,0,1,166,821.7,20.5,3],[55,1,86.4,1.0,777,3,1,157,777.0,27.3,3],[51,0,63.9,1.07,626,1,1,130,585.0,33.7,4],[55,0,70.8,0.54,394,2,0,162,729.6,26.0,3],[51,1,115.3,1.38,950,3,1,139,688.4,24.4,3],[35,0,55.3,1.71,1188,2,2,139,694.7,19.8,5],[47,1,73.9,1.36,942,2,0,140,692.6,28.3,3],[32,1,97.3,1.36,1025,1,1,137,753.7,24.9,3],[44,0,60.4,1.27,966,1,1,169,760.6,32.6,4],[51,1,49.3,1.36,868,0,0,129,638.2,28.3,2],[55,1,91.8,1.44,1091,0,0,153,757.6,23.5,3],[50,0,73.6,0.89,581,1,0,145,652.8,33.9,3],[41,1,47.1,1.26,929,3,0,149,737.3,24.7,3],[32,1,65.2,0.58,408,0,0,128,703.4,25.3,2],[47,1,87.2,2.0,1634,2,2,165,817.0,15.0,4],[59,1,96.7,0.57,423,3,0,150,742.1,28.4,3],[34,0,46.9,1.02,821,2,1,161,804.9,28.6,3],[22,0,72.1,1.38,849,1,0,123,615.2,25.1,3],[46,0,62.5,1.61,906,2,2,125,562.7,18.1,4],[21,1,110.7,1.06,775,3,0,133,731.1,27.0,3],[27,1,102.6,1.41,954,1,1,123,676.6,26.5,3],[34,0,64.3,1.76,1276,3,2,145,725.0,19.8,5],[27,1,80.7,1.75,1598,2,2,166,913.1,14.3,4],[34,1,115.3,1.36,1249,3,0,167,918.4,24.5,2],[37,1,87.8,1.81,1573,1,2,158,869.1,10.3,5],[41,1,74.3,1.06,714,2,1,136,673.6,24.8,4],[22,0,78.5,1.36,938,2,1,138,689.7,31.9,4],[51,0,77.3,0.97,733,0,0,168,755.7,31.1,2],[23,0,64.5,0.51,319,0,0,125,625.5,30.4,2],[19,1,72.0,1.17,952,3,1,148,813.7,24.7,3],[30,0,77.9,1.41,916,0,1,130,649.6,27.9,4],[28,0,69.6,1.49,1006,0,1,135,675.2,27.8,3],[40,1,68.9,1.16,951,0,1,149,819.8,25.0,4],[33,1,45.9,1.45,1148,0,1,144,791.7,21.6,3],[48,0,68.2,0.75,537,1,0,159,716.0,28.4,3],[28,0,79.6,1.49,968,1,1,130,649.7,28.2,3],[33,0,53.6,1.02,643,0,0,126,630.4,30.9,2],[25,0,57.7,1.36,986,3,1,145,725.0,25.7,3],[21,1,74.2,1.32,1024,1,1,141,775.8,28.3,3],[57,0,64.4,1.52,985,0,2,144,648.0,17.8,5],[21,0,54.9,0.55,380,1,0,138,690.9,31.7,2],[42,1,50.3,0.63,468,2,0,150,742.9,27.0,3],[20,0,46.5,0.91,660,1,0,145,725.3,27.9,2],[49,1,57.8,0.93,741,1,0,161,796.8,24.7,3],[20,1,83.0,0.79,695,3,0,160,879.7,29.6,2],[44,1,82.5,1.51,1159,1,2,155,767.5,13.8,5],[46,0,66.5,1.11,709,3,0,142,638.7,34.7,3],[49,0,70.2,0.93,695,2,0,166,747.3,32.5,3],[36,1,121.9,1.49,1082,0,1,132,726.2,21.8,3],[38,0,70.3,1.19,857,3,1,144,720.2,25.6,4],[22,0,40.3,1.45,877,1,1,121,604.8,30.8,4],[35,1,101.4,0.84,559,1,0,121,665.5,23.6,2],[45,1,79.2,1.47,982,3,1,135,668.0,22.8,3],[59,0,75.8,1.46,841,2,0,128,576.0,33.1,3],[39,1,71.7,0.55,445,0,0,147,809.1,23.7,2],[38,0,57.7,1.64,1082,1,2,132,659.8,16.6,5],[23,0,47.4,0.76,585,2,0,154,769.7,33.5,3],[18,0,57.2,1.29,1032,0,1,160,800.0,33.5,3],[22,0,44.8,1.48,977,0,1,132,660.1,28.6,4],[58,1,90.2,0.9,668,1,0,150,742.2,28.3,2],[29,1,84.9,1.79,1378,3,2,140,769.8,14.3,4],[43,1,95.7,1.08,807,1,0,151,747.2,24.2,3],[51,1,59.0,1.22,924,1,1,153,757.4,20.7,3],[31,0,60.5,1.72,1092,1,2,127,634.9,15.0,4],[43,0,53.8,1.03,742,2,1,160,720.4,30.2,4],[44,1,86.6,1.66,1372,3,2,167,826.5,11.7,5],[26,0,72.8,1.37,829,2,0,121,605.1,35.0,2],[43,0,66.3,1.48,1046,1,1,157,706.8,32.7,4],[39,0,56.0,0.89,672,3,0,151,755.1,32.6,2],[47,1,45.9,1.29,1015,0,1,159,786.8,29.6,3],[34,1,88.0,1.9,1536,3,2,147,808.4,14.4,4],[43,1,94.0,1.31,1012,1,0,156,772.5,23.2,2],[53,0,44.7,1.34,965,3,1,160,720.1,26.7,3],[18,1,63.2,0.66,436,0,0,120,660.6,27.5,3],[25,1,95.6,1.47,1294,0,1,160,880.3,23.8,4],[52,1,47.8,1.01,645,3,1,129,638.6,24.7,3],[32,1,85.3,1.77,1197,0,2,123,676.3,13.2,4],[39,1,59.7,1.35,1143,2,1,154,846.7,29.1,4],[31,1,70.2,0.71,504,3,0,129,709.9,24.2,2],[43,0,72.7,0.79,590,0,0,166,746.8,32.8,3],[45,0,50.4,0.74,433,0,0,130,585.1,27.7,2],[40,1,81.7,0.91,666,3,0,133,731.9,27.0,2],[31,1,49.3,0.56,484,2,0,157,864.3,20.0,2],[41,0,61.9,1.93,1138,3,2,131,589.6,19.4,4],[19,0,49.1,1.42,1164,0,1,164,819.7,25.3,4],[43,1,66.5,1.11,747,3,1,136,673.0,27.1,3],[31,1,75.5,0.6,446,0,0,135,743.3,20.5,2],[24,1,88.2,1.76,1491,1,2,154,847.2,11.3,4],[20,1,74.8,1.33,885,3,1,121,665.4,25.0,3],[40,0,72.2,0.87,566,3,0,130,650.6,29.2,3],[35,1,62.8,1.41,1241,0,1,160,880.1,21.9,4],[55,1,84.7,1.19,719,0,1,122,604.2,23.3,3],[52,1,116.5,0.53,388,0,0,148,732.1,27.3,2],[32,1,77.4,1.39,1047,0,1,137,753.2,26.7,3],[42,0,72.9,1.17,732,3,1,139,625.6,25.7,4],[54,0,58.4,1.08,807,0,0,166,747.2,32.5,2],[45,0,64.3,1.67,999,3,2,133,598.2,15.3,4],[27,1,89.3,1.62,1363,2,2,153,841.4,12.7,5],[56,1,90.2,1.38,1148,3,1,168,831.9,22.6,3],[34,0,59.0,1.13,847,0,1,150,749.6,30.9,4],[56,1,58.7,1.09,858,0,1,159,787.2,22.6,3],[39,1,127.5,1.26,1116,2,1,161,885.7,29.8,3],[43,0,68.6,1.42,875,3,1,137,616.2,28.1,4],[42,0,56.7,1.07,717,2,0,149,670.1,27.4,3],[34,0,64.5,1.33,958,3,1,144,720.3,27.8,4],[30,0,61.6,1.78,1228,0,2,138,689.9,19.5,4],[37,1,75.1,1.23,859,3,1,127,698.4,26.4,4],[42,1,79.3,1.22,888,0,0,147,727.9,27.3,2],[21,0,72.6,1.19,756,0,1,127,635.3,34.2,3],[27,1,76.7,0.96,792,1,0,150,825.0,29.1,3],[20,0,44.2,1.08,659,1,0,122,610.2,32.4,2],[58,0,56.5,0.74,406,3,0,122,548.6,27.0,2],[35,1,100.9,1.1,986,0,0,163,896.4,28.4,2],[53,0,55.8,1.12,711,2,1,141,634.8,27.0,4],[39,1,58.3,1.35,1010,0,1,136,748.1,27.4,4],[51,1,48.6,1.47,1128,2,0,155,767.3,26.9,2],[25,1,81.7,1.94,1451,3,2,136,747.9,13.8,4],[57,1,85.6,1.76,1159,3,2,133,658.5,12.7,5],[36,0,60.0,1.63,1043,2,2,128,639.9,18.2,5],[59,1,126.4,1.24,915,2,0,149,737.9,29.5,3],[58,0,75.4,1.05,662,0,1,140,630.5,26.0,4],[54,0,64.2,1.69,996,3,2,131,589.3,16.5,4],[23,0,65.2,1.37,1069,0,1,156,780.3,31.1,3],[43,0,70.1,0.99,673,2,0,151,679.8,34.6,2],[51,1,102.6,1.21,779,1,0,130,643.8,21.0,2],[23,1,107.2,1.15,879,1,1,139,764.3,20.2,4],[54,0,56.5,1.76,1220,1,2,154,693.2,15.3,5],[50,0,61.6,1.22,911,2,1,166,746.7,25.5,4],[39,1,81.7,1.32,1198,0,1,165,907.6,29.1,4],[38,0,76.6,0.74,481,3,0,130,650.0,32.2,2],[23,1,116.8,1.0,698,2,1,127,698.0,26.8,4],[23,0,60.1,1.8,1107,1,2,123,615.0,17.6,4],[21,1,93.7,1.0,803,0,0,146,803.0,27.8,2],[47,0,41.6,1.03,756,3,1,163,734.0,26.6,4],[28,0,55.1,1.99,1582,3,2,159,795.0,17.0,5],[47,1,127.1,0.71,552,2,0,157,777.5,24.9,2],[48,0,69.1,1.34,1001,2,1,166,747.0,26.1,4],[41,0,66.8,1.34,898,3,0,149,670.1,29.2,3],[26,1,125.5,1.15,1031,3,1,163,896.5,23.2,4],[20,0,71.3,1.07,893,1,1,167,834.6,25.4,3],[48,1,129.2,1.06,876,3,1,167,826.4,21.4,4],[57,1,96.3,1.1,795,2,1,146,722.7,27.6,3],[54,0,67.5,0.72,454,0,0,140,630.6,25.2,3],[53,0,64.4,1.77,1107,1,2,139,625.4,19.7,4],[41,0,64.9,1.04,576,1,1,123,553.8,25.9,4],[48,0,52.3,0.74,433,3,0,130,585.1,33.0,3],[23,0,56.7,1.38,911,0,1,132,660.1,34.0,4],[19,0,46.8,1.35,864,1,1,128,640.0,34.4,4],[37,0,70.3,1.01,621,2,0,123,614.9,33.7,2],[45,1,80.8,1.7,1102,3,2,131,648.2,11.4,4],[28,0,56.0,1.94,1242,2,2,128,640.2,16.7,5],[21,1,101.2,1.3,944,3,0,132,726.2,24.3,2],[32,0,56.6,1.65,1378,1,2,167,835.2,15.7,4],[23,0,40.9,0.82,594,3,0,145,724.4,25.2,3],[47,1,127.8,0.77,598,0,0,157,776.6,28.7,2],[55,0,49.3,1.28,927,2,0,161,724.2,30.5,2],[19,0,64.3,1.87,1234,0,2,132,659.9,18.0,5],[32,1,49.3,1.18,1025,2,1,158,868.6,29.3,3],[28,0,63.0,0.68,500,2,0,147,735.3,31.7,2],[25,0,41.1,1.03,711,3,1,138,690.3,31.9,3],[43,0,40.5,1.5,965,1,1,143,643.3,32.9,3],[22,1,71.0,0.91,691,1,0,138,759.3,21.2,2],[23,0,60.9,1.59,1336,0,2,168,840.3,16.8,5],[43,0,64.7,1.88,1117,3,2,132,594.1,19.8,4],[21,0,51.0,1.07,706,1,1,132,659.8,34.2,3],[36,0,57.7,1.65,1213,2,2,147,735.2,19.4,4],[37,1,76.9,1.49,992,2,1,121,665.8,24.5,4],[50,1,80.5,1.85,1181,3,2,129,638.4,14.3,4],[37,0,73.3,1.03,726,0,1,141,704.9,25.5,3],[29,0,49.0,1.33,878,3,1,132,660.2,26.5,3],[18,1,114.5,1.03,725,0,0,128,703.9,24.1,3],[43,1,81.0,1.58,1189,3,2,152,752.5,12.4,5],[31,0,53.5,1.22,811,2,1,133,664.8,27.6,4],[55,1,52.1,0.77,637,3,0,167,827.3,23.6,3],[54,0,70.1,0.76,475,1,0,139,625.0,26.6,2],[28,1,86.9,1.29,951,1,1,134,737.2,24.9,4],[53,1,73.4,1.09,815,3,1,151,747.7,27.9,3],[30,1,90.0,1.32,1104,0,1,152,836.4,26.6,4],[20,1,85.7,1.72,1287,0,2,136,748.3,10.5,5],[50,0,70.4,0.73,470,2,0,143,643.8,29.9,2],[23,1,57.7,1.15,942,2,1,149,819.1,27.0,3],[27,1,75.7,0.68,494,0,0,132,726.5,25.3,3],[22,0,61.8,1.83,1519,3,2,166,830.1,17.0,5],[40,1,80.3,1.63,1497,2,2,167,918.4,13.1,5],[27,1,104.3,1.28,950,0,1,135,742.2,29.7,3],[19,0,65.7,1.46,883,0,1,121,604.8,25.9,3],[30,1,120.3,0.66,494,3,0,136,748.5,23.9,2],[57,0,51.9,1.05,713,1,1,151,679.0,29.1,3],[19,0,59.1,1.65,1336,0,2,162,809.7,17.9,5],[37,0,66.9,1.38,876,2,1,127,634.8,26.5,4],[18,0,66.9,0.94,573,3,0,122,609.6,26.8,2],[54,1,78.7,1.42,921,3,1,131,648.6,22.9,3],[26,0,62.4,1.88,1307,3,2,139,695.2,19.8,4],[34,1,102.1,0.96,713,1,0,135,742.7,27.3,2],[26,1,51.9,0.75,549,1,0,133,732.0,26.6,2],[28,1,58.3,1.32,980,2,1,135,742.4,28.2,4],[32,1,89.8,1.93,1783,2,2,168,923.8,10.6,4],[41,1,101.1,0.79,634,3,0,162,802.5,28.6,2],[55,1,118.6,0.77,640,2,0,168,831.2,25.9,3],[52,1,84.8,1.19,895,0,0,152,752.1,23.4,2],[47,1,80.0,0.72,531,1,0,149,737.5,28.2,3],[48,1,73.1,1.05,681,3,1,131,648.6,28.0,4],[22,1,117.3,1.24,914,3,1,134,737.1,28.5,3],[31,0,77.4,1.26,863,0,1,137,684.9,26.2,4],[28,0,72.9,1.13,831,0,1,147,735.4,34.7,3],[26,0,71.2,1.15,816,0,0,142,709.6,34.6,2],[51,1,88.2,1.56,1027,0,2,133,658.3,11.8,4],[29,0,75.6,1.31,976,3,1,149,745.0,25.7,4],[52,0,57.9,1.66,1135,1,2,152,683.7,15.8,4],[52,0,70.6,1.02,753,1,1,164,738.2,34.9,3],[18,1,118.6,0.94,693,0,0,134,737.2,25.6,3],[57,1,55.7,1.13,705,2,1,126,623.9,23.6,3],[39,1,102.3,0.89,656,3,0,134,737.1,22.9,3],[46,1,72.6,1.31,1044,1,1,161,796.9,22.6,4],[25,0,63.8,0.95,784,0,0,165,825.3,31.6,2],[28,0,67.3,0.61,479,2,0,157,785.2,29.2,3],[58,0,59.3,1.97,1463,2,2,165,742.6,19.8,4],[54,0,70.7,1.14,836,0,0,163,733.3,31.8,3],[31,1,86.9,1.72,1230,3,2,130,715.1,14.0,4],[47,1,98.2,0.76,557,1,0,148,732.9,22.9,3],[52,1,63.6,1.3,965,2,1,150,742.3,20.8,4],[38,0,45.2,1.01,727,1,1,144,719.8,29.9,3],[54,1,117.2,1.04,736,1,1,143,707.7,23.1,4],[22,1,107.4,1.34,1017,2,0,138,759.0,22.0,2],[36,0,59.1,0.85,514,0,0,121,604.7,34.5,2],[31,0,53.3,0.57,402,2,0,141,705.3,29.4,3],[43,1,46.2,1.18,812,2,0,139,688.1,21.7,2],[21,1,67.0,1.32,1104,3,1,152,836.4,22.0,3],[42,1,86.3,1.77,1113,1,2,127,628.8,11.4,4],[59,1,85.5,1.99,1418,0,2,144,712.6,15.0,5],[42,1,70.2,1.38,1127,1,1,165,816.7,22.7,3],[35,1,127.1,1.02,718,2,1,128,703.9,23.3,4],[57,0,75.6,1.05,723,0,1,153,688.6,31.6,3],[25,0,62.6,1.2,852,0,0,142,710.0,27.9,3],[56,0,55.7,1.91,1066,0,2,124,558.1,16.1,5],[57,1,96.1,1.21,862,0,1,144,712.4,21.6,3],[31,0,76.7,1.39,883,3,1,127,635.3,28.1,4],[49,1,57.2,1.14,762,0,0,135,668.4,21.1,2],[55,1,69.9,1.2,992,2,1,167,826.7,20.2,4],[50,0,67.9,1.03,760,3,1,164,737.9,33.0,3],[40,1,87.9,1.96,1445,2,2,134,737.2,10.7,5],[32,1,102.8,1.24,818,2,1,120,659.7,27.8,3],[50,0,51.8,1.32,838,1,0,141,634.8,33.0,3],[42,0,57.7,1.83,1005,0,2,122,549.2,17.7,4],[34,0,66.5,0.81,636,0,0,157,785.2,28.1,3],[50,1,95.4,1.16,764,2,1,133,658.6,21.5,4],[19,0,69.2,1.17,907,0,0,155,775.2,32.4,3],[31,0,66.6,1.02,699,3,1,137,685.3,31.0,4],[57,1,83.4,1.57,1290,1,2,166,821.7,13.3,4],[57,0,43.8,1.39,1001,0,0,160,720.1,25.1,2],[56,0,64.2,1.99,1227,0,2,137,616.6,19.6,5],[23,0,44.1,0.58,354,3,0,122,610.3,25.7,2],[23,1,87.3,1.87,1327,1,2,129,709.6,11.8,5],[20,1,55.0,1.12,1035,3,1,168,924.1,24.0,4],[24,1,87.1,1.57,1364,2,2,158,868.8,10.0,4],[25,1,66.6,1.38,1260,2,0,166,913.0,25.0,2],[59,0,60.4,1.72,929,0,2,120,540.1,18.8,5],[32,1,126.4,1.1,883,1,1,146,802.7,28.2,3],[46,1,88.7,0.75,542,2,0,146,722.7,28.8,2]],"tipos":["Cardio","HIIT","Strength","Yoga"],"exps":["iniciante","intermediario","avancado"],"r2_total":[["Duração da sessão",0.825],["+ BPM médio",0.93],["+ idade",0.953],["+ sexo",0.979]],"r2_hora":[["BPM médio",0.657],["+ idade",0.789],["+ sexo",0.947],["+ peso",0.947]],"corr_total":[["Duração da sessão",0.908],["Nível de experiência",0.694],["% de gordura",-0.598],["Frequência semanal",0.576],["Água ingerida",0.357],["BPM médio",0.34],["Idade",-0.155],["Peso",0.095],["Altura",0.086],["IMC",0.06],["BPM em repouso",0.017],["BPM máximo",0.002]],"corr_hora":[["Duração da sessão",0.009],["Nível de experiência",0.007],["% de gordura",-0.172],["Frequência semanal",-0.017],["Água ingerida",0.244],["BPM médio",0.81],["Idade",-0.334],["Peso",0.261],["Altura",0.223],["IMC",0.16],["BPM em repouso",0.058],["BPM máximo",-0.008]]};
+
+/* ---------- Utilidades ---------- */
+const fmt0 = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
+const fmt1 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const fmt2 = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const media = a => a.reduce((s, v) => s + v, 0) / a.length;
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs = {}, pai) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') e.textContent = v; else if (k === 'style') e.style.cssText = v; else e.setAttribute(k, v);
+  }
+  if (pai) pai.appendChild(e);
+  return e;
+}
+function sv(tag, attrs = {}, pai) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') e.textContent = v; else if (k === 'style') e.style.cssText = v; else e.setAttribute(k, v);
+  }
+  if (pai) pai.appendChild(e);
+  return e;
+}
+function correlacao(xs, ys) {
+  const mx = media(xs), my = media(ys);
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < xs.length; i++) { const a = xs[i] - mx, b = ys[i] - my; sxy += a * b; sxx += a * a; syy += b * b; }
+  return sxy / Math.sqrt(sxx * syy);
+}
+function pct(v) { return (v > 0 ? '+' : '') + fmt1.format(v) + '%'; }
+
+/* ---------- Tooltip ---------- */
+const tip = $('#tooltip');
+function mostrarTip(ev, titulo, linhas) {
+  tip.replaceChildren();
+  el('div', { class: 'tt-titulo', text: titulo }, tip);
+  for (const l of linhas) {
+    const d = el('div', { class: 'tt-linha' }, tip);
+    if (l.cor) el('i', { style: 'background:' + l.cor }, d);
+    el('b', { text: l.valor }, d);
+    el('span', { class: 'muted', text: l.rotulo || '' }, d);
+  }
+  const x = ev.clientX + 14, y = ev.clientY + 14;
+  tip.classList.add('visivel');
+  const r = tip.getBoundingClientRect();
+  tip.style.left = Math.min(x, innerWidth - r.width - 8) + 'px';
+  tip.style.top = Math.min(y, innerHeight - r.height - 64) + 'px';
+}
+function esconderTip() { tip.classList.remove('visivel'); }
+
+/* Tabela alternativa (visão sem cor) */
+function tabela(alvo, cab, linhas) {
+  const box = $('#' + alvo); box.replaceChildren();
+  const t = el('table', { class: 'tab' }, box);
+  const tr = el('tr', {}, el('thead', {}, t));
+  cab.forEach(c => el('th', { text: c }, tr));
+  const tb = el('tbody', {}, t);
+  linhas.forEach(l => { const r = el('tr', {}, tb); l.forEach(c => el('td', { text: c }, r)); });
+}
+$$('.btn-tabela').forEach(b => b.addEventListener('click', () => {
+  const box = $('#' + b.dataset.tabela); box.hidden = !box.hidden;
+  b.textContent = box.hidden ? 'Ver tabela' : 'Esconder tabela';
+}));
+
+/* Botões segmentados */
+function segmentado(id, aoMudar) {
+  const bs = $$('#' + id + ' button');
+  bs.forEach(b => b.addEventListener('click', () => {
+    bs.forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+    aoMudar(b.dataset.v);
+  }));
+}
+
+/* ---------- Navegação entre telas ---------- */
+const telas = $$('.slide');
+let atual = 0;
+const pontos = $('#pontos');
+telas.forEach((t, i) => {
+  const b = el('button', { 'aria-label': 'Ir para ' + t.dataset.titulo, title: t.dataset.titulo }, pontos);
+  b.addEventListener('click', () => ir(i));
+});
+function ir(i) {
+  atual = Math.max(0, Math.min(telas.length - 1, i));
+  telas.forEach((t, k) => t.classList.toggle('ativa', k === atual));
+  $$('#pontos button').forEach((b, k) => b.setAttribute('aria-current', k === atual ? 'true' : 'false'));
+  $('#contador').textContent = (atual + 1) + ' / ' + telas.length;
+  $('#titulo-tela').textContent = telas[atual].dataset.titulo;
+  history.replaceState(null, '', '#' + (atual + 1));
+  esconderTip();
+}
+$('#ant').addEventListener('click', () => ir(atual - 1));
+$('#prox').addEventListener('click', () => ir(atual + 1));
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select')) return;
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); ir(atual + 1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); ir(atual - 1); }
+  else if (e.key === 'Home') ir(0);
+  else if (e.key === 'End') ir(telas.length - 1);
+  else if (e.key === 't' || e.key === 'T') alternarTema();
+});
+function alternarTema() {
+  const raiz = document.documentElement;
+  const escuroAgora = raiz.dataset.theme ? raiz.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  raiz.dataset.theme = escuroAgora ? 'light' : 'dark';
+  try { localStorage.setItem('tema', raiz.dataset.theme); } catch (e) {}
+}
+try { const t = localStorage.getItem('tema'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+$('#tema').addEventListener('click', alternarTema);
+ir(Math.max(0, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+addEventListener('hashchange', () => { const n = parseInt(location.hash.slice(1), 10); if (n && n - 1 !== atual) ir(n - 1); });
+/* depois de mexer num controle, devolve as setas para a navegação entre telas */
+document.addEventListener('change', e => { if (e.target.matches('input, select')) e.target.blur(); });
+document.addEventListener('pointerup', e => { if (e.target.matches('input[type="range"]')) setTimeout(() => e.target.blur(), 0); });
+
+/* ---------- Tela 5: cartões de decisão ---------- */
+$$('.defeito').forEach(c => {
+  const abrir = () => c.classList.toggle('aberta');
+  c.addEventListener('click', abrir);
+  c.addEventListener('keydown', e => { if (e.key === 'Enter') abrir(); });
+});
+
+/* ---------- Tela 4: scripts ---------- */
+const SCRIPTS = {
+  ingerir: ['ingerir.py', 'Baixa a base do Kaggle com o kagglehub (precisa de token), acha o CSV sem depender do nome exato, copia para a bronze com a data da extração no nome e grava proveniencia.json: fonte, arquivo de origem, data e hora.'],
+  explorar: ['explorar.py', 'Pega o arquivo mais recente da bronze (a data no nome ordena) e gera o relatório de perfilamento em HTML na pasta relatorios/. É o "olhar antes de decidir".'],
+  limpeza: ['limpeza.py — módulo', 'Não roda sozinho: é importado. Guarda as funções genéricas, como tirar_espacos, chave_texto e aplicar_mapa. O que é específico da academia (a ordem da experiência, o dicionário de tipos de treino) fica no script da academia.'],
+  t_gym: ['transformar_gym_members.py', 'Lê o arquivo mais recente da bronze, remove espaços, confere linhas repetidas, dá tipo às categorias, cria calorias_por_hora, confere a plausibilidade (200 a 1.500 kcal/h), salva em Parquet e grava a proveniência.']
+};
+$$('.script').forEach(b => b.addEventListener('click', () => {
+  $$('.script').forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false'));
+  const [nome, txt] = SCRIPTS[b.dataset.s];
+  const box = $('#explica-script'); box.replaceChildren();
+  el('h3', { text: nome }, box); el('p', { class: 'ink2', text: txt }, box);
+}));
+
+/* ---------- Dados da academia ---------- */
+/* colunas: 0 idade, 1 masculino, 2 peso, 3 duração, 4 calorias, 5 tipo, 6 experiência, 7 BPM médio, 8 kcal/h, 9 % gordura, 10 frequência */
+const G = D.gym;
+const NOMES_EXP = ['Iniciante', 'Intermediário', 'Avançado'];
+const NOMES_TIPO = { Cardio: 'Cardio', HIIT: 'HIIT', Strength: 'Força', Yoga: 'Yoga' };
+const porExp = [0, 1, 2].map(k => G.filter(r => r[6] === k));
+const expTotal = porExp.map(g => media(g.map(r => r[4])));
+const expHora = porExp.map(g => media(g.map(r => r[8])));
+const expDur = porExp.map(g => media(g.map(r => r[3])));
+
+/* ---------- Tela 6: colunas por experiência ---------- */
+(function () {
+  const box = $('#graf-exp'), rot = $('#rot-exp');
+  const MAX = 1400;
+  [0, 350, 700, 1050, 1400].forEach(v => {
+    const y = 100 - v / MAX * 100;
+    el('div', { class: 'linha-grade', style: 'top:' + y + '%' }, box);
+    el('div', { class: 'tick', style: 'top:' + y + '%', text: fmt0.format(v) }, box);
+  });
+  const cores = ['var(--o1)', 'var(--o2)', 'var(--o3)'];
+  const cols = [0, 1, 2].map(k => {
+    const c = el('div', { class: 'col', tabindex: '0', style: 'background:' + cores[k] }, box);
+    el('span', { class: 'val' }, c);
+    el('div', { text: NOMES_EXP[k] + ' (n=' + porExp[k].length + ')' }, rot);
+    return c;
+  });
+  let modo = 'total';
+  function desenhar() {
+    const vals = modo === 'total' ? expTotal : expHora;
+    cols.forEach((c, k) => {
+      c.style.height = (vals[k] / MAX * 100) + '%';
+      c.firstChild.textContent = fmt0.format(vals[k]);
+      const mostrar = ev => mostrarTip(ev, NOMES_EXP[k], [
+        { valor: fmt0.format(expTotal[k]) + ' kcal', rotulo: 'por sessão', cor: cores[k] },
+        { valor: fmt0.format(expHora[k]) + ' kcal/h', rotulo: 'por hora' },
+        { valor: fmt2.format(expDur[k]) + ' h', rotulo: 'duração média' }]);
+      c.onpointermove = mostrar; c.onpointerleave = esconderTip;
+      c.onfocus = () => { const r = c.getBoundingClientRect(); mostrar({ clientX: r.right, clientY: r.top }); };
+      c.onblur = esconderTip;
+    });
+    $('#exp-unidade').textContent = modo === 'total' ? 'kcal por sessão, média por nível de experiência' : 'kcal por hora, média por nível de experiência (mesma escala)';
+    const extra = (expTotal[2] / expTotal[0] - 1) * 100;
+    $('#msg-exp').textContent = modo === 'total'
+      ? 'Por sessão, o avançado queima ' + fmt0.format(extra) + '% a mais que o iniciante. Será que ele treina mais forte?'
+      : 'Por hora, os três níveis ficam entre ' + fmt0.format(Math.min(...expHora)) + ' e ' + fmt0.format(Math.max(...expHora)) + ' kcal/h. O avançado não treina mais forte: treina mais tempo.';
+  }
+  segmentado('seg-exp', v => { modo = v; desenhar(); });
+  $('#dur-av').textContent = fmt2.format(expDur[2]) + ' h';
+  $('#dur-in').textContent = 'contra ' + fmt2.format(expDur[0]) + ' h do iniciante';
+  tabela('tab-exp', ['Nível', 'n', 'kcal/sessão', 'kcal/h', 'duração (h)'],
+    [0, 1, 2].map(k => [NOMES_EXP[k], porExp[k].length, fmt0.format(expTotal[k]), fmt0.format(expHora[k]), fmt2.format(expDur[k])]));
+  desenhar();
+})();
+
+/* ---------- Barras horizontais genéricas ---------- */
+/* itens: [{nome, valor, texto, cor}] ; dominio [min, max] */
+function barrasH(alvo, itens, dominio, tipFn) {
+  const box = $('#' + alvo); box.replaceChildren();
+  const [a, b] = dominio, esc = v => (v - a) / (b - a) * 100, zero = esc(0);
+  itens.forEach(it => {
+    el('div', { class: 'nome', text: it.nome, title: it.nome }, box);
+    const tr = el('div', { class: 'trilho', tabindex: '0' }, box);
+    el('div', { class: 'zero', style: 'left:' + zero + '%' }, tr);
+    const x = esc(it.valor), pos = it.valor >= 0;
+    const left = pos ? zero : x, w = Math.abs(x - zero);
+    el('div', { class: 'barra ' + (pos ? 'posit' : 'negat'), style: 'left:' + left + '%;width:' + Math.max(w, 0.4) + '%;background:' + it.cor }, tr);
+    const num = el('div', { class: 'num', text: it.texto }, tr);
+    // valor na ponta da barra, do lado de fora
+    if (pos) num.style.left = 'calc(' + (left + w) + '% + 6px)';
+    else { num.style.left = 'calc(' + left + '% - 6px)'; num.style.transform = 'translateX(-100%)'; }
+    if (tipFn) {
+      tr.addEventListener('pointermove', ev => tipFn(ev, it));
+      tr.addEventListener('pointerleave', esconderTip);
+      tr.addEventListener('focus', () => { const r = tr.getBoundingClientRect(); tipFn({ clientX: r.left + r.width / 2, clientY: r.top }, it); });
+      tr.addEventListener('blur', esconderTip);
+    }
+  });
+}
+
+/* ---------- Tela 7: correlação e R² ---------- */
+(function () {
+  function desenhar(alvo) {
+    const corr = (alvo === 'total' ? D.corr_total : D.corr_hora).slice().sort((p, q) => Math.abs(q[1]) - Math.abs(p[1]));
+    barrasH('graf-corr', corr.map(([n, r]) => ({
+      nome: n, valor: r, texto: (r > 0 ? '+' : '') + fmt2.format(r), cor: r >= 0 ? 'var(--pos)' : 'var(--neg)'
+    })), [-1, 1], (ev, it) => mostrarTip(ev, it.nome, [{ valor: 'r = ' + it.texto, cor: it.cor }]));
+    tabela('tab-corr', ['Coluna', 'r'], corr.map(([n, r]) => [n, fmt2.format(r)]));
+    const passos = alvo === 'total' ? D.r2_total : D.r2_hora;
+    barrasH('graf-r2', passos.map(([n, v]) => ({ nome: n, valor: v, texto: fmt1.format(v * 100) + '%', cor: 'var(--s1)' })), [0, 1.18],
+      (ev, it) => mostrarTip(ev, it.nome, [{ valor: it.texto, rotulo: 'R² acumulado', cor: 'var(--s1)' }]));
+    $('#msg-alvo').textContent = alvo === 'total'
+      ? 'Duração domina. Experiência (r = 0,69) e % de gordura (−0,60) parecem importar, mas é porque o avançado treina mais tempo.'
+      : 'Tirando a duração, sobra a intensidade: BPM médio, idade e sexo. Experiência cai para r ≈ 0.';
+  }
+  segmentado('seg-alvo', desenhar);
+  desenhar('total');
+})();
+
+/* ---------- Tela 8: dispersão ---------- */
+(function () {
+  const svg = $('#graf-disp');
+  const W = 640, H = 380, m = { l: 52, r: 14, t: 10, b: 40 };
+  const NOMES_COL = { 0: 'Idade (anos)', 2: 'Peso (kg)', 3: 'Duração da sessão (h)', 4: 'Calorias por sessão', 7: 'BPM médio', 8: 'Calorias por hora', 9: '% de gordura' };
+  let tipoSel = -1;
+  const chips = $('#chips-tipo');
+  [['Todos', -1]].concat(D.tipos.map((t, i) => [NOMES_TIPO[t], i])).forEach(([n, i]) => {
+    const b = el('button', { class: 'chip', 'aria-pressed': i === -1 ? 'true' : 'false', text: n }, chips);
+    b.style.marginRight = '4px';
+    b.addEventListener('click', () => { tipoSel = i; $$('.chip', chips).forEach(o => o.setAttribute('aria-pressed', o === b ? 'true' : 'false')); desenhar(); });
+  });
+  function ticks(a, b, n) {
+    const passo0 = (b - a) / n, mag = Math.pow(10, Math.floor(Math.log10(passo0)));
+    const passo = [1, 2, 2.5, 5, 10].map(f => f * mag).find(p => p >= passo0);
+    const t = []; for (let v = Math.ceil(a / passo) * passo; v <= b + 1e-9; v += passo) t.push(+v.toFixed(6));
+    return t;
+  }
+  let pontos = [];
+  function desenhar() {
+    svg.replaceChildren();
+    const cx = +$('#sel-x').value, cy = +$('#sel-y').value;
+    const dados = G.filter(r => tipoSel < 0 || r[5] === tipoSel);
+    const xs = dados.map(r => r[cx]), ys = dados.map(r => r[cy]);
+    let x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...G.map(r => r[cy])), y1 = Math.max(...G.map(r => r[cy]));
+    const px = (x1 - x0) * 0.04, py = (y1 - y0) * 0.06; x0 -= px; x1 += px; y0 -= py; y1 += py;
+    const X = v => m.l + (v - x0) / (x1 - x0) * (W - m.l - m.r);
+    const Y = v => H - m.b - (v - y0) / (y1 - y0) * (H - m.t - m.b);
+    ticks(y0, y1, 5).forEach(v => {
+      sv('line', { class: 'grade', x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, svg);
+      sv('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end', text: fmt0.format(v) }, svg);
+    });
+    ticks(x0, x1, 6).forEach(v => sv('text', { x: X(v), y: H - m.b + 18, 'text-anchor': 'middle', text: Number.isInteger(v) ? fmt0.format(v) : fmt1.format(v) }, svg));
+    sv('line', { class: 'eixo', x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b }, svg);
+    sv('text', { x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle', text: NOMES_COL[cx] }, svg);
+    const g = sv('g', {}, svg);
+    pontos = dados.map(r => {
+      const c = sv('circle', { cx: X(r[cx]), cy: Y(r[cy]), r: 4, style: 'fill:' + (r[1] ? 'var(--s2)' : 'var(--s1)') + ';fill-opacity:.6;stroke:var(--surface);stroke-width:1' }, g);
+      return { r, x: X(r[cx]), y: Y(r[cy]), c };
+    });
+    // linha de tendência (mínimos quadrados)
+    const mx = media(xs), my = media(ys);
+    let sxy = 0, sxx = 0; xs.forEach((v, i) => { sxy += (v - mx) * (ys[i] - my); sxx += (v - mx) ** 2; });
+    const b = sxy / sxx, a = my - b * mx;
+    const xa = Math.min(...xs), xb = Math.max(...xs);
+    sv('line', { x1: X(xa), y1: Y(a + b * xa), x2: X(xb), y2: Y(a + b * xb), style: 'stroke:var(--ink2);stroke-width:2;stroke-linecap:round' }, svg);
+    const r = correlacao(xs, ys);
+    $('#leitura-disp').textContent = 'r = ' + fmt2.format(r) + ' · R² = ' + fmt1.format(r * r * 100) + '% · n = ' + fmt0.format(dados.length) + ' praticantes';
+    const destaque = sv('circle', { r: 7, style: 'fill:none;stroke:var(--ink);stroke-width:2;display:none' }, svg);
+    svg.onpointermove = ev => {
+      const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+      const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+      let melhor = null, dmin = 400; // raio de 20 unidades
+      for (const q of pontos) { const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2; if (d < dmin) { dmin = d; melhor = q; } }
+      if (!melhor) { destaque.style.display = 'none'; esconderTip(); return; }
+      destaque.setAttribute('cx', melhor.x); destaque.setAttribute('cy', melhor.y); destaque.style.display = '';
+      const q = melhor.r;
+      mostrarTip(ev, (q[1] ? 'Masculino' : 'Feminino') + ', ' + q[0] + ' anos · ' + NOMES_TIPO[D.tipos[q[5]]], [
+        { valor: fmt0.format(q[8]) + ' kcal/h', rotulo: 'intensidade', cor: q[1] ? 'var(--s2)' : 'var(--s1)' },
+        { valor: fmt0.format(q[4]) + ' kcal', rotulo: 'na sessão' },
+        { valor: fmt2.format(q[3]) + ' h', rotulo: 'duração' },
+        { valor: q[7] + ' bpm', rotulo: 'BPM médio' }]);
+    };
+    svg.onpointerleave = () => { destaque.style.display = 'none'; esconderTip(); };
+  }
+  $('#sel-x').addEventListener('change', desenhar);
+  $('#sel-y').addEventListener('change', desenhar);
+  desenhar();
+
+  // intensidade por tipo e por sexo
+  const porTipo = D.tipos.map((t, i) => ({ nome: NOMES_TIPO[t], valor: media(G.filter(r => r[5] === i).map(r => r[8])), n: G.filter(r => r[5] === i).length }));
+  barrasH('graf-tipo', porTipo.map(t => ({ ...t, texto: fmt0.format(t.valor), cor: 'var(--s1)' })), [0, 950],
+    (ev, it) => mostrarTip(ev, it.nome + ' (n=' + it.n + ')', [{ valor: fmt1.format(it.valor) + ' kcal/h', cor: 'var(--s1)' }]));
+  const vt = porTipo.map(t => t.valor);
+  $('#dif-tipo').textContent = fmt1.format(Math.max(...vt) - Math.min(...vt)) + ' kcal/h (' + fmt1.format((Math.max(...vt) / Math.min(...vt) - 1) * 100) + '%)';
+  const porSexo = [['Feminino', 0, 'var(--s1)'], ['Masculino', 1, 'var(--s2)']].map(([n, k, c]) => ({ nome: n, valor: media(G.filter(r => r[1] === k).map(r => r[8])), cor: c }));
+  barrasH('graf-sexo', porSexo.map(s => ({ ...s, texto: fmt0.format(s.valor) })), [0, 950],
+    (ev, it) => mostrarTip(ev, it.nome, [{ valor: fmt1.format(it.valor) + ' kcal/h', cor: it.cor }]));
+})();
+
+/* ---------- Tela 9: a fórmula ---------- */
+/* fórmula encontrada: calorias = duração × BPM × (5,5 homem | 5,0 mulher) × (0,9 se idade > 40) */
+const fator = (masc, idade) => (masc ? 5.5 : 5.0) * (idade > 40 ? 0.9 : 1.0);
+const calcular = r => r[3] * r[7] * fator(r[1], r[0]);
+(function () {
+  // calculadora
+  let masc = 1;
+  segmentado('seg-sexo', v => { masc = +v; atualizar(); });
+  const ri = $('#r-idade'), rb = $('#r-bpm'), rd = $('#r-dur');
+  function atualizar() {
+    const idade = +ri.value, bpm = +rb.value, dur = +rd.value;
+    $('#o-idade').textContent = idade + ' anos';
+    $('#o-bpm').textContent = bpm;
+    $('#o-dur').textContent = fmt2.format(dur) + ' h';
+    const fs = masc ? '5,5' : '5,0';
+    const conta = fmt2.format(dur) + ' h × ' + bpm + ' bpm × ' + fs + (idade > 40 ? ' × 0,9' : '');
+    const res = dur * bpm * fator(masc, idade);
+    $('#calc-conta').textContent = conta;
+    $('#calc-res').textContent = '= ' + fmt0.format(res) + ' kcal';
+    $('#calc-hora').textContent = fmt0.format(res / dur) + ' kcal por hora';
+  }
+  [ri, rb, rd].forEach(i => i.addEventListener('input', atualizar));
+  atualizar();
+
+  // real × calculada
+  const svg = $('#graf-formula');
+  const W = 520, H = 330, m = { l: 52, r: 12, t: 10, b: 38 };
+  const lo = 250, hi = 1850;
+  const X = v => m.l + (v - lo) / (hi - lo) * (W - m.l - m.r);
+  const Y = v => H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b);
+  [250, 650, 1050, 1450, 1850].forEach(v => {
+    sv('line', { class: 'grade', x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, svg);
+    sv('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end', text: fmt0.format(v) }, svg);
+    sv('text', { x: X(v), y: H - m.b + 18, 'text-anchor': 'middle', text: fmt0.format(v) }, svg);
+  });
+  sv('line', { class: 'eixo', x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b }, svg);
+  sv('text', { x: (m.l + W - m.r) / 2, y: H - 3, 'text-anchor': 'middle', text: 'calculada pela fórmula (kcal)' }, svg);
+  sv('text', { x: 12, y: (m.t + H - m.b) / 2, 'text-anchor': 'middle', transform: 'rotate(-90 12 ' + (m.t + H - m.b) / 2 + ')', text: 'real (kcal)' }, svg);
+  sv('line', { x1: X(lo), y1: Y(lo), x2: X(hi), y2: Y(hi), style: 'stroke:var(--axis);stroke-width:1' }, svg);
+  const pts = G.map(r => {
+    const c = calcular(r);
+    sv('circle', { cx: X(c), cy: Y(r[4]), r: 4, style: 'fill:' + (r[1] ? 'var(--s2)' : 'var(--s1)') + ';fill-opacity:.6;stroke:var(--surface);stroke-width:1' }, svg);
+    return { r, c, x: X(c), y: Y(r[4]) };
+  });
+  const erros = pts.map(p => Math.abs(p.r[4] - p.c));
+  const errMax = Math.max(...erros);
+  const dentro = erros.filter(e => e <= 0.5 + 1e-9).length;
+  $('#msg-formula').textContent = dentro + ' de ' + G.length + ' linhas batem com a fórmula; a maior diferença é ' + fmt2.format(errMax) + ' kcal, que é só o arredondamento para inteiro.';
+  const destaque = sv('circle', { r: 7, style: 'fill:none;stroke:var(--ink);stroke-width:2;display:none' }, svg);
+  svg.onpointermove = ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY;
+    const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    let melhor = null, dmin = 400;
+    for (const q of pts) { const d = (q.x - p.x) ** 2 + (q.y - p.y) ** 2; if (d < dmin) { dmin = d; melhor = q; } }
+    if (!melhor) { destaque.style.display = 'none'; esconderTip(); return; }
+    destaque.setAttribute('cx', melhor.x); destaque.setAttribute('cy', melhor.y); destaque.style.display = '';
+    const q = melhor.r;
+    mostrarTip(ev, (q[1] ? 'Masculino' : 'Feminino') + ', ' + q[0] + ' anos', [
+      { valor: fmt0.format(q[4]) + ' kcal', rotulo: 'real', cor: q[1] ? 'var(--s2)' : 'var(--s1)' },
+      { valor: fmt1.format(melhor.c) + ' kcal', rotulo: 'pela fórmula' },
+      { valor: fmt2.format(q[3]) + ' h × ' + q[7] + ' bpm', rotulo: '' }]);
+  };
+  svg.onpointerleave = () => { destaque.style.display = 'none'; esconderTip(); };
+})();
+
+/* ---------- Tela 3: composição e histograma ---------- */
+(function () {
+  // composição da base
+  const GRUPOS = {
+    sexo: [['Masculino', r => r[1] === 1], ['Feminino', r => r[1] === 0]],
+    tipo: D.tipos.map((t, i) => [NOMES_TIPO[t], r => r[5] === i]),
+    exp: NOMES_EXP.map((n, k) => [n, r => r[6] === k])
+  };
+  function comp(chave) {
+    const itens = GRUPOS[chave].map(([n, f]) => ({ nome: n, valor: G.filter(f).length }));
+    barrasH('graf-comp', itens.map(it => ({ ...it, texto: fmt0.format(it.valor), cor: 'var(--s1)' })), [0, 600],
+      (ev, it) => mostrarTip(ev, it.nome, [{ valor: fmt0.format(it.valor) + ' praticantes', rotulo: fmt1.format(it.valor / G.length * 100) + '%', cor: 'var(--s1)' }]));
+  }
+  segmentado('seg-comp', comp);
+  comp('sexo');
+
+  // histograma da coluna escolhida
+  const svg = $('#graf-hist');
+  const W = 600, H = 300, m = { l: 44, r: 8, t: 10, b: 36 };
+  const UNID = { 0: ' anos', 2: ' kg', 3: ' h', 4: ' kcal', 7: ' bpm', 9: '%', 10: ' dias' };
+  function formata(c, v) { return (c === 3 ? fmt2.format(v) : (Number.isInteger(v) ? fmt0.format(v) : fmt1.format(v))) + (UNID[c] || ''); }
+  function desenhar() {
+    svg.replaceChildren();
+    const c = +$('#sel-hist').value;
+    const vals = G.map(r => r[c]);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    // colunas inteiras com poucos valores: uma barra por valor; senão, 14 faixas iguais
+    const inteira = vals.every(Number.isInteger);
+    let bordas;
+    if (inteira) {
+      // faixas de largura inteira, para o rótulo sair "27 a 29 anos" e não "26,8 a 29,7"
+      const w = Math.ceil((hi - lo + 1) / 14);
+      bordas = []; for (let v = lo - 0.5; v < hi + 0.5; v += w) bordas.push(v); bordas.push(bordas[bordas.length - 1] + w);
+    } else { const n = 14, w = (hi - lo) / n; bordas = Array.from({ length: n + 1 }, (_, i) => lo + i * w); }
+    const nb = bordas.length - 1;
+    const cont = new Array(nb).fill(0);
+    vals.forEach(v => { let i = 0; while (i < nb - 1 && v >= bordas[i + 1]) i++; cont[i]++; });
+    const ymax = Math.max(...cont);
+    const passo = [10, 20, 25, 50, 100, 200, 250].find(p => ymax / p <= 5) || 250;
+    const ytop = Math.ceil(ymax / passo) * passo;
+    const X = v => m.l + (v - bordas[0]) / (bordas[nb] - bordas[0]) * (W - m.l - m.r);
+    const Y = v => H - m.b - v / ytop * (H - m.t - m.b);
+    for (let v = 0; v <= ytop; v += passo) {
+      sv('line', { class: 'grade', x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v) }, svg);
+      sv('text', { x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end', text: fmt0.format(v) }, svg);
+    }
+    cont.forEach((n, i) => {
+      const x0 = X(bordas[i]) + 1, x1 = X(bordas[i + 1]) - 1, y = Y(n), h = H - m.b - y;
+      if (n > 0) {
+        const r = Math.min(4, (x1 - x0) / 2, h);
+        // retângulo com cantos arredondados só no topo
+        sv('path', { d: `M${x0},${H - m.b}V${y + r}Q${x0},${y} ${x0 + r},${y}H${x1 - r}Q${x1},${y} ${x1},${y + r}V${H - m.b}Z`, style: 'fill:var(--s1)' }, svg);
+      }
+      const alvo = sv('rect', { x: X(bordas[i]), y: m.t, width: X(bordas[i + 1]) - X(bordas[i]), height: H - m.t - m.b, style: 'fill:transparent' }, svg);
+      const a = !inteira ? formata(c, bordas[i]) + ' a ' + formata(c, bordas[i + 1])
+        : (bordas[i + 1] - bordas[i] === 1 ? formata(c, bordas[i] + 0.5) : formata(c, bordas[i] + 0.5) + ' a ' + formata(c, bordas[i + 1] - 0.5));
+      alvo.addEventListener('pointermove', ev => mostrarTip(ev, a, [{ valor: fmt0.format(n) + ' praticantes', cor: 'var(--s1)' }]));
+      alvo.addEventListener('pointerleave', esconderTip);
+    });
+    sv('line', { class: 'eixo', x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b }, svg);
+    // rótulos do eixo X: início, meio e fim
+    [lo, (lo + hi) / 2, hi].forEach((v, k) => sv('text', { x: X(Math.min(Math.max(v, bordas[0]), bordas[nb])), y: H - m.b + 18, 'text-anchor': ['start', 'middle', 'end'][k], text: formata(c, inteira ? Math.round(v) : +v.toFixed(2)) }, svg));
+    $('#leitura-hist').textContent = 'mínimo ' + formata(c, lo) + ' · média ' + formata(c, +media(vals).toFixed(c === 3 ? 2 : 1)) + ' · máximo ' + formata(c, hi);
+  }
+  $('#sel-hist').addEventListener('change', desenhar);
+  desenhar();
+})();
+
+</script>
+</body>
+</html>
