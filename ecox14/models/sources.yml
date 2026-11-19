@@ -1,0 +1,47 @@
+# Origens: tabelas que o dbt NAO faz, so le. Foram colocadas no esquema
+# prata do banco pelo src/carga.py. E aqui que o grafo comeca.
+version: 2
+
+sources:
+  - name: prata
+    schema: prata
+    description: >
+      Camada Prata carregada no DuckDB pelo src/carga.py, a partir dos
+      Parquet de dados/prata. Entra como esta, sem transformacao.
+    tables:
+      - name: gym_members_enriquecida
+        description: >
+          Sessoes de academia (Kaggle) ja juntadas ao Compendio de
+          Atividades Fisicas (aula 7). Uma linha = uma sessao de um
+          praticante. Nomes de coluna ainda os da fonte.
+        columns:
+          - name: sessao_id
+            description: Numero da sessao (1 a n) na ordem da bronze, criado na prata.
+            data_tests:
+              - unique
+              - not_null
+          - name: treino_chave
+            description: Tipo de treino sem acento e em minuscula.
+            data_tests:
+              - not_null
+          - name: Calories_Burned
+            description: Calorias da sessao, como a fonte publica.
+            data_tests:
+              - not_null
+
+      - name: compendio
+        description: >
+          Cadastro do Compendio de Atividades Fisicas 2024, secao
+          Conditioning Exercise. Uma linha = uma atividade.
+        columns:
+          - name: codigo
+            description: Codigo de 5 digitos da atividade, como texto (tem zero a esquerda).
+            data_tests:
+              - unique
+              - not_null
+
+      - name: gym_members
+        description: >
+          Sessoes de academia limpas (aula 6), antes da juncao. Nao entra
+          em nenhum modelo; fica declarada para o grafo mostrar a origem
+          completa.

@@ -1,0 +1,7 @@
+# gerados pelo dbt a cada execucao (dbt run, dbt docs generate)
+target/
+dbt_packages/
+logs/
+
+# id anonimo que o dbt cria na primeira execucao
+.user.yml

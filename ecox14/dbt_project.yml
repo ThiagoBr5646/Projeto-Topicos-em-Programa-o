@@ -1,0 +1,32 @@
+# Projeto dbt da camada Ouro (aula 10 - ECOX14).
+# O dbt so transforma: pega um SELECT e materializa o resultado dentro do
+# banco. Baixar, ler arquivo e carregar a prata continuam em Python
+# (src/ingerir.py ... src/carga.py).
+
+name: 'ecox14'
+version: '1.0.0'
+
+# Precisa ser igual ao nome no topo do profiles.yml.
+profile: 'ecox14'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  ecox14:
+    # Padrao: tabela gravada no banco. A view muda isso no proprio arquivo.
+    +materialized: table
+
+vars:
+  # Faixa plausivel de kcal/h (aula 6). Os mesmos numeros de
+  # FAIXA_CALORIAS_HORA em src/config.py: se mudar la, mude aqui.
+  kcal_h_minimo: 200
+  kcal_h_maximo: 1500

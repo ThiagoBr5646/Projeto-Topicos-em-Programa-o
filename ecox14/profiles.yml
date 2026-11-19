@@ -1,0 +1,21 @@
+# Como o dbt conecta no banco (aula 10).
+#
+# A aula coloca este arquivo em C:\Users\SEU_USUARIO\.dbt\profiles.yml,
+# com o caminho completo do banco. Aqui ele fica DENTRO do projeto dbt,
+# com caminho relativo: o dbt procura o profiles.yml primeiro na pasta de
+# onde ele e rodado (ecox14/), e o caminho do banco e lido a partir dela.
+# Assim o projeto roda em qualquer maquina sem editar nada - e o teste do
+# config.py da aula 8. Pode ir para o GitHub: nao tem senha nem token
+# (o DuckDB nao tem servidor).
+#
+# Rode o dbt sempre de dentro de ecox14/ (o pipeline ja faz isso).
+# Para conferir qual arquivo o dbt esta lendo: dbt debug
+
+ecox14:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../dados/ouro/projeto.duckdb
+      schema: ouro
+      threads: 1
