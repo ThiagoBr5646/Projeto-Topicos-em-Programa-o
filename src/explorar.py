@@ -1,25 +1,35 @@
+"""Gera o relatorio de perfilamento da base da academia (aula 4).
+
+Nao faz parte do pipeline: e exploracao, roda quando alguem quer olhar
+a base de novo. O relatorio (16 MB) fica em relatorios/, fora do git.
+
+Como executar, de qualquer pasta:
+    python src/explorar.py
+"""
 from pathlib import Path
+import logging
 
 import pandas as pd
-from data_profiling import ProfileReport
 
-# ---- Fonte: Gym Members Exercise Dataset (Kaggle) ----
-BRONZE = Path("dados/bronze/gym_members")
-PADRAO = "gym_members_exercise_tracking_*.csv"
-RELATORIOS = Path("relatorios")
+from config import BRONZE_ACADEMIA, PADRAO_ACADEMIA, RELATORIOS
+
+# Nome do arquivo, e nao __name__: rodado direto, __name__ seria "__main__"
+# e o log nao diria de qual modulo veio a mensagem.
+log = logging.getLogger(Path(__file__).stem)
 
 
 def mais_recente():
     """Retorna o arquivo mais novo da bronze, assumindo nomes com data
-    no formato ano-mes-dia (ordem alfabética = ordem cronológica)."""
-    arquivos = sorted(BRONZE.glob(PADRAO))
+    no formato ano-mes-dia (ordem alfabetica = ordem cronologica)."""
+    arquivos = sorted(BRONZE_ACADEMIA.glob(PADRAO_ACADEMIA))
     if not arquivos:
-        raise FileNotFoundError("bronze vazia")
+        raise FileNotFoundError(f"bronze vazia: {BRONZE_ACADEMIA}")
     return arquivos[-1]
 
 
 def gerar(caminho):
-    """Lê o CSV e gera o relatório de profiling em HTML."""
+    """Le o CSV e gera o relatorio de profiling em HTML."""
+    from data_profiling import ProfileReport  # pesado: so quando precisa
     df = pd.read_csv(caminho)
     perfil = ProfileReport(df, title=caminho.name)
     RELATORIOS.mkdir(exist_ok=True)
@@ -30,9 +40,11 @@ def gerar(caminho):
 
 def main():
     caminho = mais_recente()
-    print("perfilando:", caminho.name)
-    print(gerar(caminho))
+    log.info("perfilando: %s", caminho.name)
+    log.info("relatorio: %s", gerar(caminho))
 
 
 if __name__ == "__main__":
+    from config import configurar_log
+    configurar_log()
     main()

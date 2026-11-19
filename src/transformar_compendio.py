@@ -13,21 +13,27 @@ Por que o dado vem separado: o Compendio muda a cada dez anos e mais
 Guardar o MET dentro de cada sessao obrigaria a reescrever todas elas
 quando o Compendio fosse atualizado.
 
-Como executar, a partir da raiz do projeto:
-    python src/transformar_compendio.py
+Aula 8: caminhos e a faixa de MET vieram do config.py; print virou log.
+
+Como executar, de qualquer pasta:
+    python src/pipeline.py transformacao   (esta etapa e as seguintes)
+    python src/transformar_compendio.py    (so este script)
 """
 from datetime import datetime
-from pathlib import Path
 import json
+from pathlib import Path
+import logging
 
 import pandas as pd
 
 import juncao    # modulo do projeto, em src/
 import limpeza   # modulo do projeto, em src/
+from config import (BRONZE_COMPENDIO, FAIXA_MET, PADRAO_COMPENDIO, PRATA,
+                    PRATA_COMPENDIO, PROVENIENCIA_PRATA)
 
-BRONZE = Path("dados/bronze/compendio")
-PRATA = Path("dados/prata")
-PADRAO = "compendio_condicionamento_*.csv"
+# Nome do arquivo, e nao __name__: rodado direto, __name__ seria "__main__"
+# e o log nao diria de qual modulo veio a mensagem.
+log = logging.getLogger(Path(__file__).stem)
 
 # Nomes da fonte (em ingles, como estao na pagina) -> nomes da prata.
 COLUNAS = {
@@ -35,11 +41,6 @@ COLUNAS = {
     "MET Value": "met",
     "Activity Description": "atividade_compendio",
 }
-
-# Faixa plausivel de MET para adulto: do repouso sentado (~1) ao
-# esforco maximo de atleta (~23 no Compendio inteiro).
-FAIXA_MET = (0.9, 25.0)
-
 
 def carregar():
     """Le o arquivo mais recente da bronze (a data no nome ordena).
@@ -49,19 +50,19 @@ def carregar():
     diferente" da aula. Por isso ele e lido como texto desde o inicio,
     e nao convertido depois.
     """
-    arquivos = sorted(BRONZE.glob(PADRAO))
+    arquivos = sorted(BRONZE_COMPENDIO.glob(PADRAO_COMPENDIO))
     if not arquivos:
-        raise FileNotFoundError(f"nada em {BRONZE}")
+        raise FileNotFoundError(f"nada em {BRONZE_COMPENDIO}")
     caminho = arquivos[-1]
     df = pd.read_csv(caminho, dtype={"Specific Activity Code": "string"})
-    print("lido:", caminho.name, df.shape)
+    log.info("lido: %s %s", caminho.name, df.shape)
     return df, caminho
 
 
 def codigos_estimados():
     """Le, da proveniencia da bronze, a lista de MET que a propria fonte
     marca como estimados (em vermelho na pagina)."""
-    info = json.loads((BRONZE / "proveniencia.json").read_text(encoding="utf-8"))
+    info = json.loads((BRONZE_COMPENDIO / "proveniencia.json").read_text(encoding="utf-8"))
     return info.get("valores_estimados_na_fonte", [])
 
 
@@ -79,7 +80,8 @@ def conferir_codigo(df):
     """O codigo do Compendio tem sempre 5 digitos. Fora disso e defeito
     de leitura (o zero a esquerda sumiu, por exemplo)."""
     fora_do_formato = int((~df["codigo"].str.fullmatch(r"\d{5}")).sum())
-    print("codigos fora do formato de 5 digitos:", fora_do_formato)
+    if fora_do_formato:
+        log.warning("codigos fora do formato de 5 digitos: %d", fora_do_formato)
     ausentes, repetidos = juncao.conferir_chave(df, "codigo")
     return fora_do_formato, ausentes, repetidos
 
@@ -88,8 +90,10 @@ def conferir_met(df):
     """MET ausente ou fora da faixa plausivel e sinalizado, nao removido."""
     sem_met = int(df["met"].isna().sum())
     fora = df["met"].notna() & ~df["met"].between(*FAIXA_MET)
-    print("MET ausente:", sem_met, "| fora de", FAIXA_MET, ":", int(fora.sum()))
-    print(df["met"].describe().round(2).to_dict())
+    if sem_met or fora.any():
+        log.warning("MET ausente: %d | fora de %s: %d", sem_met, FAIXA_MET,
+                    int(fora.sum()))
+    log.debug("met: %s", df["met"].describe().round(2).to_dict())
     return sem_met, int(fora.sum())
 
 
@@ -98,16 +102,16 @@ def marcar_estimados(df):
     estudo publicado por tras. Quem usar o MET precisa saber disso."""
     estimados = codigos_estimados()
     df["met_estimado"] = df["codigo"].isin(estimados)
-    print("MET estimados pela fonte:", int(df["met_estimado"].sum()))
+    log.info("MET estimados pela fonte: %d", int(df["met_estimado"].sum()))
     return df
 
 
 def salvar(df):
     """Grava a prata em Parquet (guarda o tipo texto do codigo)."""
     PRATA.mkdir(parents=True, exist_ok=True)
-    destino = PRATA / "compendio.parquet"
+    destino = PRATA_COMPENDIO
     df.to_parquet(destino, index=False)
-    print("salvo em:", destino, df.shape)
+    log.info("salvo: %s %s", destino.name, df.shape)
     return destino
 
 
@@ -121,8 +125,7 @@ def registrar(origem, destino, antes, depois, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    caminho = PRATA / "proveniencia.jsonl"
-    with caminho.open("a", encoding="utf-8") as f:
+    with PROVENIENCIA_PRATA.open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
     return info
 
@@ -154,10 +157,11 @@ def main():
     ]
     info = registrar(origem, destino, antes, depois, decisoes)
 
-    print("concluido:", destino)
-    print("linhas: antes =", antes, "| depois =", depois)
+    log.info("compendio: %d linhas na bronze -> %d na prata", antes, depois)
     return info
 
 
 if __name__ == "__main__":
+    from config import configurar_log
+    configurar_log()
     main()

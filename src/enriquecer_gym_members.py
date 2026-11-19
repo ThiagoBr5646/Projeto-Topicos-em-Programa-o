@@ -38,22 +38,28 @@ As quatro perguntas da aula, respondidas para esta juncao:
    sessoes antes = sessoes depois, e a contagem de sem par e conferida
    contra a previsao do passo 1.
 
-Como executar, a partir da raiz do projeto (depois de
-transformar_gym_members.py e transformar_compendio.py):
-    python src/enriquecer_gym_members.py
+Aula 8: caminhos vieram do config.py; print virou log. O MAPA de
+treino continua aqui: e decisao especifica desta juncao, nao parametro.
+
+Como executar, de qualquer pasta (depois das duas transformacoes):
+    python src/pipeline.py enriquecimento   (esta etapa e as seguintes)
+    python src/enriquecer_gym_members.py    (so este script)
 """
 from datetime import datetime
-from pathlib import Path
 import json
+from pathlib import Path
+import logging
 
 import pandas as pd
 
 import juncao  # modulo do projeto, em src/
+from config import (PRATA, PRATA_ACADEMIA as ACADEMIA,
+                    PRATA_COMPENDIO as COMPENDIO,
+                    PRATA_ENRIQUECIDA as DESTINO, PROVENIENCIA_PRATA)
 
-PRATA = Path("dados/prata")
-ACADEMIA = PRATA / "gym_members.parquet"
-COMPENDIO = PRATA / "compendio.parquet"
-DESTINO = PRATA / "gym_members_enriquecida.parquet"
+# Nome do arquivo, e nao __name__: rodado direto, __name__ seria "__main__"
+# e o log nao diria de qual modulo veio a mensagem.
+log = logging.getLogger(Path(__file__).stem)
 
 PESO = "Weight (kg)"
 DURACAO = "Session_Duration (hours)"
@@ -84,19 +90,19 @@ def carregar():
     """Le as duas pratas: a academia e o cadastro do Compendio."""
     academia = pd.read_parquet(ACADEMIA)
     compendio = pd.read_parquet(COMPENDIO)
-    print("academia :", ACADEMIA.name, academia.shape)
-    print("compendio:", COMPENDIO.name, compendio.shape)
+    log.info("academia : %s %s", ACADEMIA.name, academia.shape)
+    log.info("compendio: %s %s", COMPENDIO.name, compendio.shape)
     return academia, compendio
 
 
 def responder_grao(academia, compendio):
     """Antes de qualquer juncao, responder em voz alta: o que e uma linha
     em cada tabela, e o que vai ser uma linha no resultado."""
-    print("uma linha na esquerda : uma sessao de um praticante",
-          f"({len(academia)} sessoes)")
-    print("uma linha na direita  : uma atividade do Compendio",
-          f"({len(compendio)} atividades)")
-    print("uma linha no resultado: uma sessao (o grao nao deve mudar)")
+    log.debug("uma linha na esquerda : uma sessao de um praticante "
+              "(%d sessoes)", len(academia))
+    log.debug("uma linha na direita  : uma atividade do Compendio "
+              "(%d atividades)", len(compendio))
+    log.debug("uma linha no resultado: uma sessao (o grao nao deve mudar)")
 
 
 def traduzir_treino(academia):
@@ -108,8 +114,9 @@ def traduzir_treino(academia):
     academia["codigo_compendio"] = (
         academia["treino_chave"].map(MAPA_TREINO_COMPENDIO).astype("string"))
     sem_codigo = academia.loc[academia["codigo_compendio"].isna(), "Workout_Type"]
-    print("tipos de treino sem codigo no dicionario:",
-          sorted(sem_codigo.astype(str).unique()))
+    if len(sem_codigo):
+        log.warning("tipos de treino sem codigo no dicionario: %s",
+                    sorted(sem_codigo.astype(str).unique()))
     return academia
 
 
@@ -133,7 +140,9 @@ def comparar_por_treino(resultado):
     )
     tabela["base_sobre_compendio"] = (
         tabela["kcal_h_base"] / tabela["kcal_h_compendio"]).round(2)
-    print(tabela.to_string())
+    log.info("kcal/h base / kcal/h Compendio por treino: %s",
+             tabela["base_sobre_compendio"].to_dict())
+    log.debug("\n%s", tabela.to_string())
     return tabela
 
 
@@ -156,14 +165,15 @@ def calorias_met(df):
     df["calorias_met"] = (df["met"] * df[PESO] * df[DURACAO]).round(1)
     df["razao_base_met"] = (df[CALORIAS] / df["calorias_met"]).round(2)
 
-    print(df["calorias_met"].describe().round(1).to_dict())
-    print(df["razao_base_met"].describe().round(2).to_dict())
+    log.debug("calorias_met: %s", df["calorias_met"].describe().round(1).to_dict())
+    log.debug("razao_base_met: %s",
+              df["razao_base_met"].describe().round(2).to_dict())
 
     # Quanto cada coluna explica das calorias da base (R2 de uma reta).
     r2_duracao = df[CALORIAS].corr(df[DURACAO]) ** 2
     r2_met = df[CALORIAS].corr(df["calorias_met"]) ** 2
-    print(f"R2 calorias da base x duracao      : {r2_duracao:.1%}")
-    print(f"R2 calorias da base x calorias_met : {r2_met:.1%}")
+    log.info("R2 calorias da base x duracao: %.1f%% | x calorias_met: %.1f%%",
+             100 * r2_duracao, 100 * r2_met)
     return df, round(r2_duracao, 3), round(r2_met, 3)
 
 
@@ -172,7 +182,7 @@ def salvar(df):
     linha, agora com o MET e a estimativa do Compendio ao lado."""
     PRATA.mkdir(parents=True, exist_ok=True)
     df.to_parquet(DESTINO, index=False)
-    print("salvo em:", DESTINO, df.shape)
+    log.info("salvo: %s %s", DESTINO.name, df.shape)
     return DESTINO
 
 
@@ -200,8 +210,7 @@ def registrar(destino, previsao, antes, depois, sem_par, tabela,
         "r2_calorias_x_calorias_met": r2_met,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    caminho = PRATA / "proveniencia.jsonl"
-    with caminho.open("a", encoding="utf-8") as f:
+    with PROVENIENCIA_PRATA.open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
     return info
 
@@ -212,31 +221,33 @@ def main():
     academia = traduzir_treino(academia)
     cadastro = compendio[COLUNAS_DO_CADASTRO]
 
-    print("\n--- PASSO 1: conferir as chaves antes de juntar")
+    log.info("passo 1: conferir as chaves antes de juntar")
     juncao.conferir_chave(cadastro, "codigo")
     previsao = juncao.comparar_chaves(
         academia, "codigo_compendio", cadastro, "codigo")
 
-    print("\n--- PASSO 2: juntar (left, many_to_one)")
+    log.info("passo 2: juntar (left, many_to_one)")
     resultado = juncao.juntar(academia, cadastro, "codigo_compendio", "codigo")
 
-    print("\n--- PASSO 3: validar antes de comemorar")
+    log.info("passo 3: validar antes de comemorar")
     sem_par = juncao.validar(academia, resultado, "codigo")
     if len(sem_par):
-        print(sem_par["Workout_Type"].value_counts().to_string())
+        log.warning("sem par por tipo de treino: %s",
+                    sem_par["Workout_Type"].value_counts().to_dict())
 
-    print("\n--- PASSO 4: o problema em aberto se fecha")
+    log.info("passo 4: o problema em aberto se fecha")
     tabela = comparar_por_treino(resultado)
 
-    print("\n--- PASSO 5: atributo que so existe depois da juncao")
+    log.info("passo 5: atributo que so existe depois da juncao")
     resultado, r2_duracao, r2_met = calorias_met(resultado)
 
     destino = salvar(resultado)
     info = registrar(destino, previsao, len(academia), len(resultado),
                      len(sem_par), tabela, r2_duracao, r2_met)
-    print("concluido:", destino)
     return info
 
 
 if __name__ == "__main__":
+    from config import configurar_log
+    configurar_log()
     main()

@@ -19,20 +19,28 @@ Atributo derivado: calorias_por_hora.
     e altura - refazer o BMI seria criar coluna que so ocupa espaco e
     que um dia discorda da original.
 
-Como executar, a partir da raiz do projeto:
-    python src/transformar_gym_members.py
+Aula 8: caminhos vieram do config.py e os print viraram log.
+Aula 9: a prata ganhou sessao_id, a chave que a camada Ouro precisa
+(a fonte nao traz identificador nenhum).
+
+Como executar, de qualquer pasta:
+    python src/pipeline.py transformacao   (esta etapa e as seguintes)
+    python src/transformar_gym_members.py  (so este script)
 """
 from datetime import datetime
-from pathlib import Path
 import json
+from pathlib import Path
+import logging
 
 import pandas as pd
 
 import limpeza  # modulo do projeto, em src/
+from config import (BRONZE_ACADEMIA, FAIXA_CALORIAS_HORA, PADRAO_ACADEMIA,
+                    PRATA, PRATA_ACADEMIA, PROVENIENCIA_PRATA)
 
-BRONZE = Path("dados/bronze/gym_members")
-PRATA = Path("dados/prata")
-PADRAO = "gym_members_exercise_tracking_*.csv"
+# Nome do arquivo, e nao __name__: rodado direto, __name__ seria "__main__"
+# e o log nao diria de qual modulo veio a mensagem.
+log = logging.getLogger(Path(__file__).stem)
 
 DURACAO = "Session_Duration (hours)"
 CALORIAS = "Calories_Burned"
@@ -54,19 +62,23 @@ MAPA_TREINO = {}
 
 def carregar():
     """Le o arquivo mais recente da bronze (a data no nome ordena)."""
-    arquivos = sorted(BRONZE.glob(PADRAO))
+    arquivos = sorted(BRONZE_ACADEMIA.glob(PADRAO_ACADEMIA))
     if not arquivos:
-        raise FileNotFoundError(f"nada em {BRONZE}")
+        raise FileNotFoundError(f"nada em {BRONZE_ACADEMIA}")
     caminho = arquivos[-1]
     df = pd.read_csv(caminho)
-    print("lido:", caminho.name, df.shape)
+    log.info("lido: %s %s", caminho.name, df.shape)
     return df, caminho
 
 
 def olhar_antes_de_decidir(df):
     """Mostra colunas e ausentes antes de qualquer alteracao."""
-    print(df.columns.tolist())
-    print(df.isna().sum().to_dict())
+    log.debug("colunas: %s", df.columns.tolist())
+    ausentes = int(df.isna().sum().sum())
+    log.info("valores ausentes na bronze: %d", ausentes)
+    if ausentes:
+        log.warning("ausentes por coluna: %s",
+                    {c: n for c, n in df.isna().sum().items() if n})
 
 
 def tipar_categorias(df):
@@ -82,7 +94,7 @@ def tipar_categorias(df):
 
     for coluna in CATEGORIAS_SEM_ORDEM:
         df[coluna] = pd.Categorical(df[coluna])
-        print(coluna, "->", list(df[coluna].cat.categories))
+        log.debug("%s -> %s", coluna, list(df[coluna].cat.categories))
 
     df["experiencia"] = pd.Categorical(
         df["Experience_Level"].map(ROTULO_EXPERIENCIA),
@@ -90,7 +102,8 @@ def tipar_categorias(df):
         ordered=True,
     )
     fora_da_escala = int(df["experiencia"].isna().sum())
-    print("experiencia fora da escala:", fora_da_escala)
+    if fora_da_escala:
+        log.warning("experiencia fora da escala 1-3: %d", fora_da_escala)
     return df, fora_da_escala
 
 
@@ -108,8 +121,11 @@ def calorias_por_hora(df, calorias=CALORIAS, duracao=DURACAO):
 
     df["calorias_por_hora"] = (df[calorias] / horas).round(1)
 
-    print("sessoes com duracao invalida (viraram ausentes):", sem_duracao)
-    print(df["calorias_por_hora"].describe().round(1).to_dict())
+    if sem_duracao:
+        log.warning("sessoes com duracao invalida (viraram ausentes): %d",
+                    sem_duracao)
+    log.debug("calorias_por_hora: %s",
+              df["calorias_por_hora"].describe().round(1).to_dict())
     return df, sem_duracao
 
 
@@ -120,21 +136,40 @@ def conferir_plausibilidade(df):
     de treino de gente adulta cai, grosso modo, entre 200 e 1500. O que
     passar disso nao e removido, e sinalizado - remover exige dono.
     """
-    faixa = (200, 1500)
+    faixa = FAIXA_CALORIAS_HORA
     fora = df["calorias_por_hora"].notna() & ~df["calorias_por_hora"].between(*faixa)
-    print("calorias_por_hora fora de", faixa, ":", int(fora.sum()))
     if fora.any():
-        print(df.loc[fora, [CALORIAS, DURACAO, "calorias_por_hora"]].head())
+        log.warning("calorias_por_hora fora de %s: %d sessoes", faixa,
+                    int(fora.sum()))
+        log.debug("\n%s", df.loc[fora, [CALORIAS, DURACAO,
+                                        "calorias_por_hora"]].head())
     return int(fora.sum())
+
+
+def numerar_sessoes(df):
+    """Cria sessao_id: o numero da sessao, de 1 a n, na ordem da bronze.
+
+    Aula 9. A camada Ouro precisa de uma chave para a tabela fato, e a
+    fonte nao traz identificador nenhum - nem de sessao, nem de
+    praticante. O numero nasce aqui, na prata, e nao na Ouro, porque
+    precisa atravessar a juncao da aula 7 junto com a linha.
+
+    Vale dentro de uma extracao: a mesma bronze gera sempre os mesmos
+    numeros. Uma extracao nova, com as linhas em outra ordem, numera de
+    outro jeito - por isso o numero nao deve ser guardado fora do projeto.
+    """
+    df = df.reset_index(drop=True)
+    df.insert(0, "sessao_id", pd.RangeIndex(1, len(df) + 1))
+    return df
 
 
 def salvar(df):
     """Grava a prata em Parquet, sem data no nome: a prata e
     reconstruivel, cada execucao substitui a versao anterior."""
     PRATA.mkdir(parents=True, exist_ok=True)
-    destino = PRATA / "gym_members.parquet"
+    destino = PRATA_ACADEMIA
     df.to_parquet(destino, index=False)
-    print("salvo em:", destino, df.shape)
+    log.info("salvo: %s %s", destino.name, df.shape)
     return destino
 
 
@@ -148,8 +183,7 @@ def registrar(origem, destino, antes, depois, decisoes):
         "decisoes": decisoes,
         "transformado_em": datetime.now().isoformat(timespec="seconds"),
     }
-    caminho = PRATA / "proveniencia.jsonl"
-    with caminho.open("a", encoding="utf-8") as f:
+    with PROVENIENCIA_PRATA.open("a", encoding="utf-8") as f:
         f.write(json.dumps(info, ensure_ascii=False) + "\n")
     return info
 
@@ -161,8 +195,10 @@ def main():
 
     df = limpeza.tirar_espacos(df)
     repetidas = int(df.duplicated().sum())
-    print("linhas identicas repetidas:", repetidas)
+    if repetidas:
+        log.warning("linhas identicas repetidas removidas: %d", repetidas)
     df = df.drop_duplicates()
+    df = numerar_sessoes(df)
 
     df, experiencia_fora = tipar_categorias(df)
     df, sem_duracao = calorias_por_hora(df)
@@ -186,9 +222,12 @@ def main():
         "intensidade de duracao, e sem ele quem treina mais tempo em "
         "ritmo leve aparece como quem gasta mais. Sessoes com duracao "
         f"invalida viraram ausentes: {sem_duracao}.",
-        f"Conferencia de plausibilidade de calorias_por_hora (200 a 1500 "
-        f"kcal/h): {fora_da_faixa} fora da faixa, sinalizadas e nao "
-        "removidas.",
+        f"Conferencia de plausibilidade de calorias_por_hora "
+        f"({FAIXA_CALORIAS_HORA[0]} a {FAIXA_CALORIAS_HORA[1]} kcal/h): "
+        f"{fora_da_faixa} fora da faixa, sinalizadas e nao removidas.",
+        "sessao_id = numero da sessao (1 a n) na ordem da bronze, depois "
+        "de remover as repetidas. A fonte nao tem identificador; a chave "
+        "e a que a tabela fato da Ouro usa (aula 9).",
         "PENDENTE desta fonte: as checagens de qualidade da aula 5 "
         "(valor extremo por IQR e z-score, faixa valida por dominio) "
         "ainda nao foram feitas nesta base; esta prata cobre a limpeza "
@@ -196,10 +235,11 @@ def main():
     ]
     info = registrar(origem, destino, antes, depois, decisoes)
 
-    print("concluido:", destino)
-    print("linhas: antes =", antes, "| depois =", depois)
+    log.info("academia: %d linhas na bronze -> %d na prata", antes, depois)
     return info
 
 
 if __name__ == "__main__":
+    from config import configurar_log
+    configurar_log()
     main()

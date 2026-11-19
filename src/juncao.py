@@ -12,9 +12,18 @@ As quatro perguntas da aula, nesta ordem:
     3. O que fazer com quem nao casa? (o tipo de juncao decide)
     4. Como sei que deu certo? (a contagem antes e depois precisa fechar)
 
-Este arquivo nao e executavel: ele e importado. Rode os scripts sempre
-a partir da raiz do projeto, como no limpeza.py.
+Este arquivo nao e executavel: ele e importado.
+
+Aula 8: os print viraram log. Este modulo fica embaixo na hierarquia:
+nao importa config nem nenhuma etapa, so pede um logger com o proprio
+nome. Quem decide se a mensagem aparece, e onde, e quem roda.
 """
+from pathlib import Path
+import logging
+
+# Nome do arquivo, e nao __name__: rodado direto, __name__ seria "__main__"
+# e o log nao diria de qual modulo veio a mensagem.
+log = logging.getLogger(Path(__file__).stem)
 
 
 def conferir_chave(df, coluna):
@@ -26,8 +35,11 @@ def conferir_chave(df, coluna):
     """
     ausentes = int(df[coluna].isna().sum())
     repetidos = int(df[coluna].dropna().duplicated().sum())
-    print(f"chave {coluna}: {len(df)} linhas | ausentes = {ausentes} "
-          f"| repetidos = {repetidos}")
+    log.info("chave %s: %d linhas | ausentes = %d | repetidos = %d",
+             coluna, len(df), ausentes, repetidos)
+    if repetidos:
+        log.warning("chave %s repete %d vezes: a juncao vai inflar a tabela",
+                    coluna, repetidos)
     return ausentes, repetidos
 
 
@@ -41,9 +53,10 @@ def comparar_chaves(esquerda, chave_esq, direita, chave_dir):
     """
     tipo_esq = str(esquerda[chave_esq].dtype)
     tipo_dir = str(direita[chave_dir].dtype)
-    print(f"tipo da chave: esquerda = {tipo_esq} | direita = {tipo_dir}")
+    log.debug("tipo da chave: esquerda = %s | direita = %s", tipo_esq, tipo_dir)
     if tipo_esq != tipo_dir:
-        print("ATENCAO: tipos diferentes. Converta antes de juntar.")
+        log.warning("tipos de chave diferentes (%s x %s): converta antes de "
+                    "juntar", tipo_esq, tipo_dir)
 
     esq = set(esquerda[chave_esq].dropna())
     dir_ = set(direita[chave_dir].dropna())
@@ -55,10 +68,10 @@ def comparar_chaves(esquerda, chave_esq, direita, chave_dir):
         "nos_dois": sorted(esq & dir_),
         "linhas_esquerda_sem_chave": sem_chave,
     }
-    print("so na esquerda:", len(previsao["so_na_esquerda"]))
-    print("so na direita :", len(previsao["so_na_direita"]))
-    print("nos dois      :", len(previsao["nos_dois"]))
-    print("linhas da esquerda sem chave:", sem_chave)
+    log.info("previsao: so na esquerda = %d | so na direita = %d | "
+             "nos dois = %d | linhas da esquerda sem chave = %d",
+             len(previsao["so_na_esquerda"]), len(previsao["so_na_direita"]),
+             len(previsao["nos_dois"]), sem_chave)
     return previsao
 
 
@@ -88,7 +101,7 @@ def juntar(esquerda, direita, chave_esq, chave_dir):
 def validar(esquerda, resultado, chave_dir):
     """PASSO 3: valida antes de comemorar.
 
-    Tres prints que pegam a maior parte dos erros de juncao:
+    Tres conferencias que pegam a maior parte dos erros de juncao:
       - resultado com MENOS linhas: usou inner e perdeu quem nao casou;
       - resultado com MAIS linhas: a chave repete na direita, o grao mudou;
       - MESMO numero: a chave e unica na direita, como esperado.
@@ -99,9 +112,11 @@ def validar(esquerda, resultado, chave_dir):
     antes = len(esquerda)
     depois = len(resultado)
     sem_par = resultado[chave_dir].isna()
-    print("esquerda :", antes)
-    print("resultado:", depois)
-    print("sem par  :", int(sem_par.sum()))
+    log.info("esquerda: %d | resultado: %d | sem par: %d",
+             antes, depois, int(sem_par.sum()))
     if depois != antes:
-        print("ATENCAO: o numero de linhas mudou.")
+        log.warning("o numero de linhas mudou na juncao: %d -> %d",
+                    antes, depois)
+    if sem_par.any():
+        log.warning("%d linhas sem par na juncao", int(sem_par.sum()))
     return resultado[sem_par]

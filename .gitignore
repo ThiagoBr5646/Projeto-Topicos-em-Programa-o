@@ -10,3 +10,12 @@ kaggle.json
 # python src/explorar.py. Arquivo grande em repositorio fica no
 # historico para sempre, mesmo se apagado depois.
 relatorios/
+
+# Aula 8: o log de cada execucao do pipeline (tela + arquivo).
+pipeline.log
+
+# Aula 11: a interface do DuckDB e programa baixado, nao codigo do projeto.
+duckdb.exe
+
+# O banco (dados/ouro/projeto.duckdb) ja esta coberto por dados/ouro/*.
+# Os gerados do dbt (target/, logs/) estao no ecox14/.gitignore.

@@ -11,9 +11,11 @@ que toda base precisa. Escritas uma vez aqui, servem para qualquer base
 que entrar no projeto, e uma correcao feita aqui vale para todas.
 
 Este arquivo nao e executavel: ele e importado pelos scripts de
-transformacao. Para o import funcionar, rode sempre a partir da raiz
-do projeto (python src/transformar_gym_members.py) e mantenha os
-arquivos em src.
+transformacao, que ficam todos em src.
+
+Aula 8: este modulo esta embaixo na hierarquia de imports. Ele nao
+importa config nem nenhuma etapa - e por isso da para usar (e testar)
+as funcoes daqui sem rodar o pipeline inteiro.
 """
 
 import pandas as pd
