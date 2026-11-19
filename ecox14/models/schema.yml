@@ -1,0 +1,152 @@
+# Documentacao e testes da camada Ouro (aula 11 - ECOX14).
+#
+# Cada regra que antes era um log.info no conferir() do carga.py virou
+# um teste declarado aqui, ao lado da coluna que ele protege. O dbt
+# escreve a consulta; o teste passa quando ela devolve ZERO linhas.
+# A descricao de cada coluna e a mesma que aparece no site do
+# 'dbt docs generate': escrita uma vez, junto do codigo.
+#
+# Testes que nenhum teste pronto cobre ficam em ecox14/tests/.
+# (Em dbt anterior a 1.8 o campo se chama tests, sem o data_.)
+
+version: 2
+
+models:
+  - name: dim_treino
+    description: >
+      Tipo de treino, com o gasto de energia que o Compendio de Atividades
+      Fisicas 2024 atribui a ele. Uma linha por tipo de treino. O codigo de
+      cada tipo foi escolhido a mao na aula 7 (MAPA_TREINO_COMPENDIO em
+      src/enriquecer_gym_members.py).
+    columns:
+      - name: treino_id
+        description: Tipo de treino sem acento e em minuscula (cardio, hiit, strength, yoga). Chave da dimensao.
+        data_tests:
+          - unique
+          - not_null
+      - name: tipo_treino
+        description: Tipo de treino como a fonte escreve, para exibir.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Cardio', 'HIIT', 'Strength', 'Yoga']
+      - name: codigo_compendio
+        description: Codigo de 5 digitos da atividade equivalente no Compendio (texto, com zero a esquerda).
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('prata', 'compendio')
+                field: codigo
+      - name: atividade_compendio
+        description: Descricao da atividade no Compendio, em ingles, como na fonte.
+      - name: met
+        description: >
+          Gasto de energia da atividade em MET (multiplos do gasto em
+          repouso; 1 MET ~ 1 kcal por kg por hora). Media para adultos, nao
+          o gasto medido de uma pessoa.
+        data_tests:
+          - not_null
+      - name: met_estimado
+        description: Verdadeiro quando a propria fonte marca o MET como estimado, sem estudo publicado.
+
+  - name: dim_praticante
+    description: >
+      Quem treinou: perfil, frequencia cardiaca em repouso e habitos. Uma
+      linha por praticante. A fonte registra uma sessao por praticante e
+      nao tem identificador de pessoa, por isso o praticante herda o
+      numero da sessao.
+    columns:
+      - name: praticante_id
+        description: Numero do praticante (igual ao sessao_id da sua unica sessao). Chave da dimensao.
+        data_tests:
+          - unique
+          - not_null
+      - name: genero
+        description: Genero, como a fonte escreve (Male, Female).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Male', 'Female']
+      - name: idade
+        description: Idade em anos.
+      - name: peso_kg
+        description: Peso em kg.
+      - name: altura_m
+        description: Altura em metros.
+      - name: imc
+        description: Indice de massa corporal, como a fonte publica (nao foi recalculado).
+      - name: gordura_pct
+        description: Percentual de gordura corporal.
+      - name: bpm_repouso
+        description: Frequencia cardiaca em repouso, em batimentos por minuto.
+      - name: agua_litros
+        description: Agua ingerida por dia, em litros.
+      - name: treinos_por_semana
+        description: Quantos dias por semana o praticante treina.
+      - name: nivel_experiencia
+        description: Nivel de experiencia como a fonte publica (1, 2 ou 3).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3]
+                quote: false
+      - name: experiencia
+        description: Rotulo do nivel de experiencia (iniciante < intermediario < avancado). E categoria com ordem, nao numero para somar.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['iniciante', 'intermediario', 'avancado']
+
+  - name: fato_sessao
+    description: >
+      Os numeros de cada sessao de treino. Grao: uma linha = uma sessao de
+      treino de um praticante. Base sintetica (README, "Defeitos conhecidos
+      das fontes"): as calorias seguem uma formula de duracao, BPM medio,
+      genero e idade.
+    columns:
+      - name: sessao_id
+        description: Numero da sessao (1 a n) na ordem da bronze. Chave da fato - por isso unique e o teste do grao.
+        data_tests:
+          - unique
+          - not_null
+      - name: praticante_id
+        description: Quem treinou. Aponta para dim_praticante.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_praticante')
+                field: praticante_id
+      - name: treino_id
+        description: Tipo de treino. Aponta para dim_treino.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_treino')
+                field: treino_id
+      - name: duracao_h
+        description: Duracao da sessao, em horas.
+        data_tests:
+          - not_null
+      - name: calorias_base
+        description: Calorias da sessao segundo a base do Kaggle, em kcal.
+        data_tests:
+          - not_null
+      - name: bpm_medio
+        description: Frequencia cardiaca media na sessao.
+      - name: bpm_max
+        description: Frequencia cardiaca maxima na sessao.
+      - name: calorias_por_hora
+        description: calorias_base / duracao_h, em kcal/h (aula 6). Separa intensidade de duracao.
+      - name: calorias_met
+        description: met x peso_kg x duracao_h, em kcal (aula 7). A estimativa do Compendio para a mesma sessao.
+      - name: razao_base_met
+        description: calorias_base / calorias_met. Quantas vezes a base da o que o Compendio espera (1 seria concordancia).
+
+  - name: vw_sessao_completa
+    description: >
+      A tabela achatada: cada sessao com os atributos do praticante e do
+      treino ao lado. View construida a partir da estrela - nao guarda
+      dado e nao precisa ser mantida a mao. E a que o painel consulta.
