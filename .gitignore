@@ -19,3 +19,6 @@ duckdb.exe
 
 # O banco (dados/ouro/projeto.duckdb) ja esta coberto por dados/ouro/*.
 # Os gerados do dbt (target/, logs/) estao no ecox14/.gitignore.
+
+# Material da apresentacao: fica so no computador, fora do GitHub.
+apresentacao/
